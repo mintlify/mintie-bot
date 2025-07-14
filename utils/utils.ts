@@ -35,47 +35,34 @@ export function validateEnvironment(): envVars {
   };
 }
 
+// Got this function fromhttps://github.com/AnandChowdhary/mintlify-slack-assistant
 export function formatMarkdownForSlack(content: string): string {
   let text = content;
 
-  // First handle bold text (including at start of lines)
   text = text
     .replace(/\*\*([^*]+)\*\*/g, "*$1*")
     .replace(/__([^_]+)__/g, "*$1*");
 
-  // Then convert headers
   text = text.replace(/^#{1,6} (.+)$/gm, "*$1*");
 
-  // Convert lists - must be done before converting remaining single asterisks
   text = text
     .replace(/^[\*\-] (.+)$/gm, "• $1")
     .replace(/^\d+\. (.+)$/gm, "• $1");
 
-  // Convert the rest
   text = text
-    // Italic (only for single asterisks/underscores not at start of line)
     .replace(/(?<!^)\*([^*\n]+)\*/g, "_$1_")
     .replace(/(?<!^)_([^_\n]+)_/g, "_$1_")
-    // Strikethrough
     .replace(/~~(.+?)~~/g, "~$1~")
-    // Code blocks
     .replace(/```[\s\S]*?```/g, (match) => {
       return match.replace(/```(\w+)?\n?/g, "```");
     })
-    // Inline code
     .replace(/`(.+?)`/g, "`$1`")
-    // Standard markdown links [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>")
-    // Reverse markdown links (text)[url]
     .replace(/\(([^)]+)\)\[([^\]]+)\]/g, "<$2|$1>")
-    // Blockquotes
     .replace(/^> (.+)$/gm, "> $1")
-    // Improve paragraph separation - ensure double newlines become proper paragraph breaks
     .replace(/\n\n/g, "\n\n")
-    // Remove excessive newlines but preserve paragraph breaks
     .replace(/\n{3,}/g, "\n\n")
-    // Ensure proper sentence flow
-    .replace(/([.!?])\n([A-Z])/g, "$1\n\n$2"); // Add paragraph break after sentences that start new thoughts
+    .replace(/([.!?])\n([A-Z])/g, "$1\n\n$2");
 
   return text.trim();
 }
@@ -97,6 +84,7 @@ export function parseStreamingResponse(streamData: string): string {
           const jsonString = jsonMatch[1]
             .replace(/\\"/g, '"')
             .replace(/\\\\/g, "\\");
+
           const parsed = JSON.parse(jsonString);
 
           if (parsed.type === "text-delta" && parsed.textDelta) {
@@ -115,24 +103,21 @@ export function parseStreamingResponse(streamData: string): string {
       console.debug("Skipping unparseable line:", line);
     }
   }
-  const cleanMessage = fullMessage
-    .trim()
-    .replace(/\\n/g, "\n") // Convert escaped newlines to actual newlines
-    .replace(/\\t/g, " ") // Convert tabs to spaces
-    // Add proper sentence separation when sentences run together
-    .replace(/(\w)\.(\w)/g, "$1. $2") // Add space after periods before words
-    .replace(/(\w)\?(\w)/g, "$1? $2") // Add space after question marks before words
-    .replace(/(\w)!(\w)/g, "$1! $2") // Add space after exclamation marks before words
-    // Preserve intentional line breaks and paragraph breaks
-    .replace(/\n\n+/g, "\n\n") // Normalize multiple newlines to double newlines
-    // Clean up whitespace but preserve line structure
-    .replace(/[ \t]+/g, " ") // Normalize horizontal whitespace within lines
-    .replace(/\n +/g, "\n") // Remove spaces after newlines
-    .replace(/ +\n/g, "\n") // Remove spaces before newlines
-    // Ensure sentences end with proper punctuation spacing
-    .replace(/([.!?])([A-Z])/g, "$1 $2"); // Add space between sentence endings and capital letters
 
-  return cleanMessage || "Sorry, I couldn't process the response properly.";
+  const cleanResponse = fullMessage
+    .trim()
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, " ")
+    .replace(/(\w)\.(\w)/g, "$1. $2")
+    .replace(/(\w)\?(\w)/g, "$1? $2")
+    .replace(/(\w)!(\w)/g, "$1! $2")
+    .replace(/\n\n+/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n +/g, "\n")
+    .replace(/ +\n/g, "\n")
+    .replace(/([.!?])([A-Z])/g, "$1 $2");
+
+  return cleanResponse || "Sorry, I couldn't process the response properly.";
 }
 
 export class StatusManager {
@@ -145,9 +130,9 @@ export class StatusManager {
   private currentIndex = 0;
   private interval: NodeJS.Timeout | null = null;
   private slackClient: WebClient;
-  private channel: string;
-  private messageTs: string;
   private threadTs?: string;
+  public channel: string;
+  public messageTs: string;
 
   constructor(
     slackClient: WebClient,
@@ -175,33 +160,25 @@ export class StatusManager {
   }
 
   private async updateStatus(): Promise<void> {
-    try {
-      this.currentIndex = (this.currentIndex + 1) % this.statuses.length;
-      await this.slackClient.chat.update({
-        channel: this.channel,
-        ts: this.messageTs,
-        text: this.statuses[this.currentIndex],
-      });
-    } catch (error) {
-      console.error("Error updating status:", error);
-    }
+    this.currentIndex = (this.currentIndex + 1) % this.statuses.length;
+
+    await this.slackClient.chat.update({
+      channel: this.channel,
+      ts: this.messageTs,
+      text: this.statuses[this.currentIndex],
+    });
   }
 
   async finalUpdate(content: string): Promise<void> {
     this.stop();
-    try {
-      const parsedContent = parseStreamingResponse(content);
-      const formattedContent = formatMarkdownForSlack(parsedContent);
+    const parsedContent = parseStreamingResponse(content);
+    const formattedContent = formatMarkdownForSlack(parsedContent);
 
-      await this.slackClient.chat.update({
-        channel: this.channel,
-        ts: this.messageTs,
-        text: formattedContent,
-      });
-    } catch (error) {
-      console.error("Error with final update:", error);
-      throw error;
-    }
+    await this.slackClient.chat.update({
+      channel: this.channel,
+      ts: this.messageTs,
+      text: formattedContent,
+    });
   }
 }
 
@@ -210,43 +187,15 @@ export async function createInitialMessage(
   channel: string,
   threadTs?: string,
 ): Promise<string> {
-  try {
-    const result = await slackClient.chat.postMessage({
-      channel,
-      text: "🤔 Thinking...",
-      thread_ts: threadTs,
-      unfurl_links: false,
-      unfurl_media: false,
-    });
+  const result = await slackClient.chat.postMessage({
+    channel,
+    text: "🤔 Thinking...",
+    thread_ts: threadTs,
+    unfurl_links: false,
+    unfurl_media: false,
+  });
 
-    return result.ts as string;
-  } catch (error) {
-    console.error("Error creating initial message:", error);
-    throw error;
-  }
-}
-
-export async function updateSlackMessage(
-  slackClient: WebClient,
-  channel: string,
-  content: string,
-  threadTs?: string,
-): Promise<void> {
-  try {
-    const parsedContent = parseStreamingResponse(content);
-    const formattedContent = formatMarkdownForSlack(parsedContent);
-
-    await slackClient.chat.postMessage({
-      channel,
-      text: formattedContent,
-      thread_ts: threadTs,
-      unfurl_links: false,
-      unfurl_media: false,
-    });
-  } catch (error) {
-    console.error("Error updating Slack message:", error);
-    throw error;
-  }
+  return result.ts as string;
 }
 
 export function generateFingerprint(

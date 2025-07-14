@@ -1,19 +1,6 @@
 import { SlackEventMiddlewareArgs } from "@slack/bolt";
 import { extractUserMessage } from "../utils/utils";
-
-interface MentionMessageRequest {
-  text: string;
-  user: string;
-  channel: string;
-  ts: string;
-}
-
-interface MentionMessageResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-  data?: MentionMessageRequest;
-}
+import { MentionMessageRequest, MentionMessageResponse } from "../types";
 
 export class MessageHandler {
   async handleMention(
@@ -51,5 +38,3 @@ export class MessageHandler {
     }
   }
 }
-
-export { MentionMessageRequest, MentionMessageResponse };
