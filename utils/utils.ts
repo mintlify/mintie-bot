@@ -115,7 +115,16 @@ export function parseStreamingResponse(streamData: string): string {
     .replace(/[ \t]+/g, " ")
     .replace(/\n +/g, "\n")
     .replace(/ +\n/g, "\n")
-    .replace(/([.!?])([A-Z])/g, "$1 $2");
+    .replace(/([.!?])([A-Z])/g, "$1 $2")
+    .replace(/^I'll search for.*?\n/gm, "")
+    .replace(/I don't see any specific information.*?\n/g, "")
+    .replace(/Let me try.*?search.*?\n/g, "")
+    .replace(/Based on my search.*?I wasn't able to find.*?\./g, "")
+    .replace(/I searched for information.*?but I wasn't able to find.*?\./g, "")
+    .replace(
+      /I searched for more information.*?but I still wasn't able to find.*?\./g,
+      "",
+    );
 
   return cleanResponse || "Sorry, I couldn't process the response properly.";
 }
