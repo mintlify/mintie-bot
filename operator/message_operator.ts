@@ -23,6 +23,8 @@ export class MessageOperator {
     userMessage: string,
     channel: string,
     threadTs?: string,
+    isDirectMessage = true,
+    originalMessageTs?: string,
   ): Promise<void> {
     let statusManager: StatusManager | null = null;
 
@@ -30,16 +32,23 @@ export class MessageOperator {
       const fingerprint = generateFingerprint(channel, threadTs);
       const apiRequest = this.formatApiRequest(userMessage, fingerprint);
 
+      const effectiveThreadTs = isDirectMessage
+        ? threadTs
+        : threadTs || originalMessageTs;
       const messageTs = await createInitialMessage(
         this.client,
         channel,
-        threadTs,
+        effectiveThreadTs,
       );
+
+      const replyThreadTs = isDirectMessage
+        ? effectiveThreadTs
+        : threadTs || messageTs;
       statusManager = new StatusManager(
         this.client,
         channel,
         messageTs,
-        threadTs,
+        replyThreadTs,
       );
 
       statusManager.start();
@@ -52,10 +61,14 @@ export class MessageOperator {
         statusManager.stop();
       }
 
+      const errorThreadTs = isDirectMessage
+        ? threadTs
+        : statusManager?.messageTs;
+
       await this.client.chat.postMessage({
         channel,
         text: "Sorry, I encountered an error while processing your request.",
-        thread_ts: threadTs,
+        thread_ts: errorThreadTs,
       });
     }
   }

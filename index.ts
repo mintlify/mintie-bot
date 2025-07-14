@@ -1,8 +1,7 @@
 require("dotenv").config();
 import { App, Assistant } from "@slack/bolt";
-import { MessageHandler } from "./handler/message_handler";
-import { MessageOperator } from "./operator/message_operator";
-import { extractUserMessage, validateEnvironment } from "./utils/utils";
+import { SlackMessageHandler } from "./handler/slack_handler";
+import { validateEnvironment } from "./utils/utils";
 
 let envConfig;
 try {
@@ -20,34 +19,51 @@ const app = new App({
   appToken: envConfig.SLACK_APP_TOKEN,
 });
 
-const messageHandler = new MessageHandler();
-const messageOperator = new MessageOperator(
-  app.client,
-  envConfig.MINTLIFY_AUTH_TOKEN,
-  envConfig.MINTLIFY_DOCS_DOMAIN || "mintlify",
-);
+const handler = new SlackMessageHandler(envConfig);
 
 app.event("app_mention", async ({ event, client }) => {
   try {
-    const userMessage = extractUserMessage(event.text);
+    const messageText = await handler.fetchThreadHistory(event, { client });
 
-    if (!userMessage) {
-      await client.chat.postMessage({
-        channel: event.channel,
-        text: "Please include a message after mentioning me!",
-        thread_ts: event.ts,
-      });
-      return;
-    }
-
-    await messageOperator.processMessage(userMessage, event.channel, event.ts);
+    await handler.handleMessage({
+      text: messageText,
+      channel: event.channel,
+      thread_ts: event.thread_ts,
+      ts: event.ts,
+      context: { client },
+    });
   } catch (error) {
-    console.error("Error handling mention:", error);
-
     await client.chat.postMessage({
       channel: event.channel,
-      text: "Sorry, I encountered an error processing your request.",
+      text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
       thread_ts: event.ts,
+    });
+  }
+});
+
+app.message(async ({ message, client }) => {
+  if (!("text" in message) || !message.text) return;
+
+  if (message.channel.startsWith("D")) return;
+
+  const botMentionPattern = /<@[UW][A-Z0-9]+>/;
+  if (!botMentionPattern.test(message.text)) return;
+
+  try {
+    const messageText = await handler.fetchThreadHistory(message, { client });
+
+    await handler.handleMessage({
+      text: messageText,
+      channel: message.channel,
+      thread_ts: "thread_ts" in message ? message.thread_ts : undefined,
+      ts: message.ts,
+      context: { client },
+    });
+  } catch (error) {
+    await client.chat.postMessage({
+      channel: message.channel,
+      text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
+      thread_ts: message.ts,
     });
   }
 });
@@ -83,36 +99,21 @@ const assistant = new Assistant({
       const threadTs = "thread_ts" in message ? message.thread_ts : undefined;
 
       if (messageText) {
-        await messageOperator.processMessage(
-          messageText,
-          message.channel,
-          threadTs,
-        );
+        await handler.handleMessage({
+          text: messageText,
+          channel: message.channel,
+          thread_ts: threadTs,
+          ts: message.ts || Date.now().toString(),
+          context: { say, setStatus },
+        });
       }
     } catch (error) {
-      console.error("Error in assistant message handler:", error);
       await say("Sorry, I encountered an error. Please try again.");
     }
   },
 });
 
 app.assistant(assistant);
-
-app.message(/.*/, async ({ message, say }) => {
-  try {
-    if (
-      "channel_type" in message &&
-      message.channel_type === "im" &&
-      "text" in message &&
-      message.text
-    ) {
-      await messageOperator.processMessage(message.text, message.channel);
-    }
-  } catch (error) {
-    console.error("Error in fallback message handler:", error);
-    await say("Sorry, I encountered an error processing your message.");
-  }
-});
 
 (async () => {
   try {

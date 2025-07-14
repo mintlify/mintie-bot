@@ -12,6 +12,7 @@ export interface MentionMessageRequest {
   user: string;
   channel: string;
   ts: string;
+  isDirectMessage: boolean;
 }
 
 export interface MentionMessageResponse {

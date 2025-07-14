@@ -17,11 +17,14 @@ export class MessageHandler {
         };
       }
 
+      const isDirectMessage = event.channel.startsWith("D");
+      
       const mentionRequest: MentionMessageRequest = {
         text: messageText,
         user: event.user || "",
         channel: event.channel,
         ts: event.ts,
+        isDirectMessage,
       };
 
       return {
