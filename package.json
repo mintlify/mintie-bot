@@ -1,0 +1,22 @@
+{
+  "name": "mintie-bot",
+  "version": "1.0.0",
+  "description": "the mintlify slack assistant :0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "npx ts-node index.ts",
+    "dev": "npx ts-node index.ts", 
+    "build": "npx tsc",
+    "test": "npx ts-node index.ts"
+  },
+  "author": "vidyootsenthil",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/bolt": "^4.4.0",
+    "dotenv": "^17.2.0",
+    "node-fetch": "^3.3.2",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}
