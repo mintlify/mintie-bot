@@ -15,7 +15,8 @@ try {
 const app = new App({
   token: envConfig.SLACK_BOT_TOKEN,
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
-  socketMode: false,
+  socketMode: true,
+  appToken: envConfig.SLACK_APP_TOKEN,
 });
 
 const handler = new SlackMessageHandler(envConfig);
@@ -245,9 +246,8 @@ app.assistant(assistant);
 
 (async () => {
   try {
-    const port = envConfig.PORT || 3000;
-    await app.start(port);
-    console.log(`mintie bot is running on port ${port}!`);
+    await app.start();
+    console.log(`mintie bot is running in socket mode!`);
     console.log("ready to help with Mintlify documentation queries");
   } catch (error) {
     console.error("failed to start the app:", error);
