@@ -6,7 +6,7 @@ import { validateEnvironment, fetchThreadHistory } from "./utils/utils";
 let envConfig;
 try {
   envConfig = validateEnvironment();
-  console.log("%cenvironment variables set successfully", "color: green");
+  console.log("environment variables set successfully");
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

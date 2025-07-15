@@ -1,5 +1,5 @@
 import { WebClient } from "@slack/web-api";
-import { envVars } from "../types";
+import { envVars, DocsLink } from "../types";
 
 export function validateEnvironment(): envVars {
   const requiredVars: (keyof envVars)[] = [
@@ -10,6 +10,8 @@ export function validateEnvironment(): envVars {
     "MINTLIFY_DOCS_DOMAIN",
   ];
 
+  const optionalVars: (keyof envVars)[] = ["MINTLIFY_DOCS_DOMAIN_URL", "PORT"];
+
   const missing: string[] = [];
   const config: Partial<envVars> = {};
 
@@ -19,6 +21,13 @@ export function validateEnvironment(): envVars {
     if (!value || value.trim() === "") {
       missing.push(varName);
     } else {
+      config[varName] = value;
+    }
+  }
+
+  for (const varName of optionalVars) {
+    const value = process.env[varName];
+    if (value && value.trim() !== "") {
       config[varName] = value;
     }
   }
@@ -35,46 +44,18 @@ export function validateEnvironment(): envVars {
   };
 }
 
-// Got this function fromhttps://github.com/AnandChowdhary/mintlify-slack-assistant
-export function formatMarkdownForSlack(content: string): string {
-  let text = content;
-
-  text = text
-    .replace(/\*\*([^*]+)\*\*/g, "*$1*")
-    .replace(/__([^_]+)__/g, "*$1*");
-
-  text = text.replace(/^#{1,6} (.+)$/gm, "*$1*");
-
-  text = text
-    .replace(/^[\*\-] (.+)$/gm, "• $1")
-    .replace(/^\d+\. (.+)$/gm, "• $1");
-
-  text = text
-    .replace(/(?<!^)\*([^*\n]+)\*/g, "_$1_")
-    .replace(/(?<!^)_([^_\n]+)_/g, "_$1_")
-    .replace(/~~(.+?)~~/g, "~$1~")
-    .replace(/```[\s\S]*?```/g, (match) => {
-      return match.replace(/```(\w+)?\n?/g, "```");
-    })
-    .replace(/`(.+?)`/g, "`$1`")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>")
-    .replace(/\(([^)]+)\)\[([^\]]+)\]/g, "<$2|$1>")
-    .replace(/^> (.+)$/gm, "> $1")
-    .replace(/\n\n/g, "\n\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/([.!?])\n([A-Z])/g, "$1\n\n$2");
-
-  return text.trim();
-}
-
 export function extractUserMessage(text: string): string {
   const botMentionPattern = /<@[UW][A-Z0-9]+>/g;
   return text.replace(botMentionPattern, "").trim();
 }
 
-export function parseStreamingResponse(streamData: string): string {
+export function parseStreamingResponse(streamData: string): {
+  content: string;
+  sources: DocsLink[];
+} {
   const lines = streamData.split("\n").filter((line) => line.trim());
   let fullMessage = "";
+  let sources: DocsLink[] = [];
 
   for (const line of lines) {
     try {
@@ -89,6 +70,8 @@ export function parseStreamingResponse(streamData: string): string {
 
           if (parsed.type === "text-delta" && parsed.textDelta) {
             fullMessage += parsed.textDelta;
+          } else if (parsed.type === "sources" && parsed.sources) {
+            sources = parsed.sources;
           }
         }
       } else if (line.match(/^0:"/)) {
@@ -108,14 +91,10 @@ export function parseStreamingResponse(streamData: string): string {
     .trim()
     .replace(/\\n/g, "\n")
     .replace(/\\t/g, " ")
-    .replace(/(\w)\.(\w)/g, "$1. $2")
-    .replace(/(\w)\?(\w)/g, "$1? $2")
-    .replace(/(\w)!(\w)/g, "$1! $2")
     .replace(/\n\n+/g, "\n\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n +/g, "\n")
     .replace(/ +\n/g, "\n")
-    .replace(/([.!?])([A-Z])/g, "$1 $2")
     .replace(/^I'll search for.*?\n/gm, "")
     .replace(/I don't see any specific information.*?\n/g, "")
     .replace(/Let me try.*?search.*?\n/g, "")
@@ -126,7 +105,11 @@ export function parseStreamingResponse(streamData: string): string {
       "",
     );
 
-  return cleanResponse || "Sorry, I couldn't process the response properly.";
+  return {
+    content:
+      cleanResponse || "Sorry, I couldn't process the response properly.",
+    sources,
+  };
 }
 
 export class StatusManager {
@@ -139,20 +122,19 @@ export class StatusManager {
   private currentIndex = 0;
   private interval: NodeJS.Timeout | null = null;
   private slackClient: WebClient;
-  private threadTs?: string;
   public channel: string;
   public messageTs: string;
-
+  private docsDomainURL?: string;
   constructor(
     slackClient: WebClient,
     channel: string,
     messageTs: string,
-    threadTs?: string,
+    docsDomainURL?: string,
   ) {
     this.slackClient = slackClient;
     this.channel = channel;
     this.messageTs = messageTs;
-    this.threadTs = threadTs;
+    this.docsDomainURL = docsDomainURL;
   }
 
   start(): void {
@@ -180,14 +162,107 @@ export class StatusManager {
 
   async finalUpdate(content: string): Promise<void> {
     this.stop();
-    const parsedContent = parseStreamingResponse(content);
-    const formattedContent = formatMarkdownForSlack(parsedContent);
+    const { content: parsedContent, sources } = parseStreamingResponse(content);
+
+    const blocks = this.buildMessageBlocks(parsedContent, sources);
 
     await this.slackClient.chat.update({
       channel: this.channel,
       ts: this.messageTs,
-      text: formattedContent,
+      text: parsedContent,
+      blocks: blocks,
     });
+  }
+
+  private buildMessageBlocks(content: string, sources: DocsLink[]): any[] {
+    const blocks: any[] = [];
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: this.formatContentForBlocks(content),
+      },
+    });
+
+    if (sources && sources.length > 0) {
+      blocks.push({
+        type: "divider",
+      });
+
+      blocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: this.formatSourcesForBlocks(sources),
+        },
+      });
+    }
+
+    return blocks;
+  }
+
+  private formatContentForBlocks(content: string): string {
+    let text = content;
+
+    text = text
+      .replace(/\*\*([^*]+)\*\*/g, "*$1*") // Bold
+      .replace(/__([^_]+)__/g, "*$1*") // Bold underline
+      .replace(/^#{1,6} (.+)$/gm, "*$1*") // Headers
+      .replace(/^[\*\-] (.+)$/gm, "• $1") // Bullets
+      .replace(/^\d+\. (.+)$/gm, "• $1") // Numbered lists
+      .replace(/~~(.+?)~~/g, "~$1~") // Strikethrough
+      .replace(/`(.+?)`/g, "`$1`") // Inline code
+      .replace(/```[\s\S]*?```/g, (match) => {
+        return match.replace(/```(\w+)?\n?/g, "```");
+      });
+
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
+      const baseUrl = this.docsDomainURL || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const fullUrl = url.startsWith("http")
+        ? url
+        : normalizedBaseUrl + url.replace(/^\//, "");
+      return `<${fullUrl}|${linkText}>`;
+    });
+
+    text = text
+      .replace(/\n\n+/g, "\n\n")
+      .replace(/([.!?])\n([A-Z])/g, "$1\n\n$2")
+      .trim();
+
+    return text;
+  }
+
+  private formatSourcesForBlocks(sources: DocsLink[]): string {
+    const baseUrl = this.docsDomainURL || "https://mintlify.com/docs/";
+
+    const links = sources.map((source, idx) => {
+      let url: string;
+
+      if (
+        source.link.startsWith("</") &&
+        source.link.includes("|") &&
+        source.link.endsWith(">")
+      ) {
+        const match = source.link.match(/<\/([^|]+)\|([^>]+)>/);
+        if (match) {
+          const [, rawPath] = match;
+          const path = rawPath.replace(/^\//, "");
+          url = baseUrl.endsWith("/") ? baseUrl + path : baseUrl + "/" + path;
+        } else {
+          url = source.link;
+        }
+      } else {
+        url = source.link.startsWith("http")
+          ? source.link
+          : baseUrl + source.link.replace(/^\//, "");
+      }
+
+      return `<${url}|${idx + 1}>`;
+    });
+
+    return `*Sources:* ${links.join(" • ")}`;
   }
 }
 

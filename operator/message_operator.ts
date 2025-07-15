@@ -2,9 +2,7 @@ import { WebClient } from "@slack/web-api";
 import {
   StatusManager,
   createInitialMessage,
-  formatMarkdownForSlack,
   generateFingerprint,
-  parseStreamingResponse,
 } from "../utils/utils";
 import { MintlifyApiRequest } from "../types";
 
@@ -12,11 +10,20 @@ export class MessageOperator {
   private client: WebClient;
   private apiUrl: string;
   private authToken: string;
+  private docsDomain: string;
+  private docsDomainURL?: string;
 
-  constructor(client: WebClient, authToken: string, domain: string) {
+  constructor(
+    client: WebClient,
+    authToken: string,
+    domain: string,
+    docsDomainURL?: string,
+  ) {
     this.client = client;
     this.apiUrl = `https://leaves.mintlify.com/api/discovery/v1/assistant/${domain}/message`;
     this.authToken = authToken;
+    this.docsDomain = domain;
+    this.docsDomainURL = docsDomainURL;
   }
 
   async processMessage(
@@ -48,7 +55,7 @@ export class MessageOperator {
         this.client,
         channel,
         messageTs,
-        replyThreadTs,
+        this.docsDomainURL,
       );
 
       statusManager.start();
@@ -109,14 +116,6 @@ export class MessageOperator {
 
     if (response) {
       await statusManager.finalUpdate(response);
-      const parsedContent = parseStreamingResponse(response);
-      const formattedContent = formatMarkdownForSlack(parsedContent);
-
-      await this.client.chat.update({
-        channel: statusManager.channel,
-        ts: statusManager.messageTs,
-        text: formattedContent,
-      });
     }
   }
 

@@ -15,6 +15,7 @@ export class SlackMessageHandler {
       this.client,
       env.MINTLIFY_AUTH_TOKEN,
       env.MINTLIFY_DOCS_DOMAIN || "mintlify",
+      env.MINTLIFY_DOCS_DOMAIN_URL,
     );
   }
 

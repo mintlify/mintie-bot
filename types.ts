@@ -4,6 +4,7 @@ export interface envVars {
   SLACK_APP_TOKEN: string;
   MINTLIFY_AUTH_TOKEN: string;
   MINTLIFY_DOCS_DOMAIN: string;
+  MINTLIFY_DOCS_DOMAIN_URL?: string;
   PORT?: string;
 }
 
@@ -29,10 +30,15 @@ export interface MintlifyMessage {
   parts: Array<{
     type: "text";
     text: string;
-  }>; 
+  }>;
 }
 
 export interface MintlifyApiRequest {
   fp: string;
   messages: MintlifyMessage[];
+}
+
+export interface DocsLink {
+  link: string;
+  title?: string;
 }
