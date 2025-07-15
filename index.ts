@@ -1,7 +1,7 @@
 require("dotenv").config();
 import { App, Assistant } from "@slack/bolt";
 import { SlackMessageHandler } from "./handler/slack_handler";
-import { validateEnvironment } from "./utils/utils";
+import { validateEnvironment, fetchThreadHistory } from "./utils/utils";
 
 let envConfig;
 try {
@@ -99,8 +99,22 @@ const assistant = new Assistant({
       const threadTs = "thread_ts" in message ? message.thread_ts : undefined;
 
       if (messageText) {
+        let contextMessage = messageText;
+
+        if (threadTs) {
+          const threadContext = await fetchThreadHistory(
+            app.client,
+            message.channel,
+            threadTs,
+          );
+
+          if (threadContext) {
+            contextMessage = `${threadContext}\n\nCurrent message: ${messageText}`;
+          }
+        }
+
         await handler.handleMessage({
-          text: messageText,
+          text: contextMessage,
           channel: message.channel,
           thread_ts: threadTs,
           ts: message.ts || Date.now().toString(),

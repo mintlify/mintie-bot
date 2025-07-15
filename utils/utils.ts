@@ -215,3 +215,35 @@ export function generateFingerprint(
   const timestamp = Date.now();
   return `${base}-${timestamp}`;
 }
+
+export async function fetchThreadHistory(
+  client: WebClient,
+  channel: string,
+  threadTs: string,
+): Promise<string> {
+  try {
+    const threadHistory = await client.conversations.replies({
+      channel: channel,
+      ts: threadTs,
+      limit: 50,
+    });
+
+    if (threadHistory.messages && threadHistory.messages.length > 1) {
+      const contextMessages = threadHistory.messages
+        .slice(0, -1)
+        .map((msg: any) => {
+          const sender =
+            msg.bot_id || msg.subtype === "bot_message" ? "Assistant" : "User";
+          const content = msg.text || "";
+          return `${sender}: ${content}`;
+        })
+        .join("\n");
+
+      return `Previous conversation context:\n${contextMessages}`;
+    }
+  } catch (error) {
+    console.warn("Failed to fetch thread history:", error);
+  }
+
+  return "";
+}

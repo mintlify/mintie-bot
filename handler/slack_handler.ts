@@ -1,7 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import { envVars } from "../types";
 import { MessageOperator } from "../operator/message_operator";
-import { extractUserMessage } from "../utils/utils";
+import { extractUserMessage, fetchThreadHistory } from "../utils/utils";
 
 export class SlackMessageHandler {
   private client: WebClient;
@@ -24,6 +24,21 @@ export class SlackMessageHandler {
 
       if (!userMessage) {
         throw new Error("No message content provided after mention");
+      }
+
+      const threadTs = payload.thread_ts || payload.ts;
+      const channel = payload.channel;
+
+      if (threadTs && threadTs !== payload.ts) {
+        const threadContext = await fetchThreadHistory(
+          this.client,
+          channel,
+          threadTs,
+        );
+
+        if (threadContext) {
+          return `${threadContext}\n\nCurrent message: ${userMessage}`;
+        }
       }
 
       return userMessage;
