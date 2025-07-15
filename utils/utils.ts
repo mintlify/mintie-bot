@@ -91,23 +91,43 @@ export function parseStreamingResponse(streamData: string): {
     .trim()
     .replace(/\\n/g, "\n")
     .replace(/\\t/g, " ")
-    .replace(/\n\n+/g, "\n\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n +/g, "\n")
-    .replace(/ +\n/g, "\n")
-    .replace(/^I'll search for.*?\n/gm, "")
-    .replace(/I don't see any specific information.*?\n/g, "")
-    .replace(/Let me try.*?search.*?\n/g, "")
-    .replace(/Based on my search.*?I wasn't able to find.*?\./g, "")
-    .replace(/I searched for information.*?but I wasn't able to find.*?\./g, "")
     .replace(
-      /I searched for more information.*?but I still wasn't able to find.*?\./g,
-      "",
-    );
+      /(^|\n)~~~\s*(\w+)?\s*\n/g,
+      (match, p1, lang) => `${p1}\`\`\`${lang ? lang : ""}\n`,
+    )
+    .replace(/(^|\n)~~~\s*(?=\n|$)/g, `$1\`\`\`\n`)
+    .replace(/~~~+/g, "```")
+    .replace(/```[^`]*\[([^\]]+)\]\(([^)]+)\)[^`]*```/g, (match, text, url) => {
+      const content = match.replace(/```[^\n]*\n?/g, "").replace(/\n?```/g, "");
+      return content;
+    });
+
+  const finalResponse = cleanResponse
+    .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, path) => {
+      const baseUrl =
+        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
+      return `[${text}](${fullUrl})`;
+    })
+    .replace(/\(([^)]+)\)\[\/([^\]]+)\]/g, (match, text, path) => {
+      const baseUrl =
+        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
+      return `[${text}](${fullUrl})`;
+    })
+    .replace(/\(([^)]+)\)\[([^\]]+)\]/g, (match, text, path) => {
+      const baseUrl =
+        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
+      return `[${text}](${fullUrl})`;
+    });
 
   return {
     content:
-      cleanResponse || "Sorry, I couldn't process the response properly.",
+      finalResponse || "Sorry, I couldn't process the response properly.",
     sources,
   };
 }
@@ -164,25 +184,70 @@ export class StatusManager {
     this.stop();
     const { content: parsedContent, sources } = parseStreamingResponse(content);
 
-    const blocks = this.buildMessageBlocks(parsedContent, sources);
+    if (parsedContent.length > 3000) {
+      const splitPoint = this.findSafeSplitPoint(parsedContent);
+      const firstPart = parsedContent.substring(0, splitPoint).trim();
+      const secondPart = parsedContent.substring(splitPoint).trim();
 
-    await this.slackClient.chat.update({
-      channel: this.channel,
-      ts: this.messageTs,
-      text: parsedContent,
-      blocks: blocks,
-    });
+      const firstBlocks = [
+        {
+          type: "markdown",
+          text: firstPart,
+        },
+      ];
+
+      await this.slackClient.chat.update({
+        channel: this.channel,
+        ts: this.messageTs,
+        text: firstPart,
+        blocks: firstBlocks,
+      });
+
+      const secondBlocks = this.buildSecondMessageBlocks(secondPart, sources);
+      await this.slackClient.chat.postMessage({
+        channel: this.channel,
+        thread_ts: this.messageTs,
+        text: secondPart,
+        blocks: secondBlocks,
+      });
+    } else {
+      const blocks = this.buildMessageBlocks(parsedContent, sources);
+      await this.slackClient.chat.update({
+        channel: this.channel,
+        ts: this.messageTs,
+        text: parsedContent,
+        blocks: blocks,
+      });
+    }
   }
 
-  private buildMessageBlocks(content: string, sources: DocsLink[]): any[] {
+  private findSafeSplitPoint(content: string): number {
+    const midPoint = Math.floor(content.length / 2);
+
+    for (let i = midPoint; i < content.length && i < midPoint + 200; i++) {
+      if (content[i] === "\n" && content[i + 1] === "\n") {
+        return i + 2;
+      }
+    }
+
+    for (let i = midPoint; i > 0 && i > midPoint - 200; i--) {
+      if (content[i] === "\n" && content[i + 1] === "\n") {
+        return i + 2;
+      }
+    }
+
+    return content.lastIndexOf(" ", midPoint) + 1;
+  }
+
+  private buildSecondMessageBlocks(
+    content: string,
+    sources: DocsLink[],
+  ): any[] {
     const blocks: any[] = [];
 
     blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: this.formatContentForBlocks(content),
-      },
+      type: "markdown",
+      text: content,
     });
 
     if (sources && sources.length > 0) {
@@ -202,36 +267,29 @@ export class StatusManager {
     return blocks;
   }
 
-  private formatContentForBlocks(content: string): string {
-    let text = content;
+  private buildMessageBlocks(content: string, sources: DocsLink[]): any[] {
+    const blocks: any[] = [];
 
-    text = text
-      .replace(/\*\*([^*]+)\*\*/g, "*$1*") // Bold
-      .replace(/__([^_]+)__/g, "*$1*") // Bold underline
-      .replace(/^#{1,6} (.+)$/gm, "*$1*") // Headers
-      .replace(/^[\*\-] (.+)$/gm, "• $1") // Bullets
-      .replace(/^\d+\. (.+)$/gm, "• $1") // Numbered lists
-      .replace(/~~(.+?)~~/g, "~$1~") // Strikethrough
-      .replace(/`(.+?)`/g, "`$1`") // Inline code
-      .replace(/```[\s\S]*?```/g, (match) => {
-        return match.replace(/```(\w+)?\n?/g, "```");
-      });
-
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, linkText, url) => {
-      const baseUrl = this.docsDomainURL || "https://mintlify.com/docs/";
-      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
-      const fullUrl = url.startsWith("http")
-        ? url
-        : normalizedBaseUrl + url.replace(/^\//, "");
-      return `<${fullUrl}|${linkText}>`;
+    blocks.push({
+      type: "markdown",
+      text: content,
     });
 
-    text = text
-      .replace(/\n\n+/g, "\n\n")
-      .replace(/([.!?])\n([A-Z])/g, "$1\n\n$2")
-      .trim();
+    if (sources && sources.length > 0) {
+      blocks.push({
+        type: "divider",
+      });
 
-    return text;
+      blocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: this.formatSourcesForBlocks(sources),
+        },
+      });
+    }
+
+    return blocks;
   }
 
   private formatSourcesForBlocks(sources: DocsLink[]): string {
