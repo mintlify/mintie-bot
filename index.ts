@@ -22,8 +22,25 @@ const app = new App({
 const handler = new SlackMessageHandler(envConfig);
 
 app.event("app_mention", async ({ event, client }) => {
+  console.log(`[APP_MENTION] Received mention event:`, {
+    eventId: event.event_ts,
+    channel: event.channel,
+    user: event.user,
+    text: event.text,
+    threadTs: event.thread_ts,
+    timestamp: new Date().toISOString(),
+  });
+
   try {
     const messageText = await handler.fetchThreadHistory(event, { client });
+
+    console.log(`[APP_MENTION] Processing message:`, {
+      originalText: event.text,
+      processedText: messageText,
+      channel: event.channel,
+      threadTs: event.thread_ts,
+      timestamp: new Date().toISOString(),
+    });
 
     await handler.handleMessage({
       text: messageText,
@@ -32,7 +49,20 @@ app.event("app_mention", async ({ event, client }) => {
       ts: event.ts,
       context: { client },
     });
+
+    console.log(`[APP_MENTION] Successfully processed mention event:`, {
+      eventId: event.event_ts,
+      channel: event.channel,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
+    console.error(`[APP_MENTION] Error processing mention event:`, {
+      eventId: event.event_ts,
+      channel: event.channel,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    });
+
     await client.chat.postMessage({
       channel: event.channel,
       text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
@@ -42,15 +72,48 @@ app.event("app_mention", async ({ event, client }) => {
 });
 
 app.message(async ({ message, client }) => {
-  if (!("text" in message) || !message.text) return;
+  console.log(`[MESSAGE] Received message event:`, {
+    messageId: message.ts,
+    channel: message.channel,
+    user: "user" in message ? message.user : "unknown",
+    text: "text" in message ? message.text : "no text",
+    threadTs: "thread_ts" in message ? message.thread_ts : undefined,
+    timestamp: new Date().toISOString(),
+  });
 
-  if (message.channel.startsWith("D")) return;
+  if (!("text" in message) || !message.text) {
+    console.log(`[MESSAGE] Skipping message - no text content`);
+    return;
+  }
+
+  if (message.channel.startsWith("D")) {
+    console.log(`[MESSAGE] Skipping direct message`);
+    return;
+  }
 
   const botMentionPattern = /<@[UW][A-Z0-9]+>/;
-  if (!botMentionPattern.test(message.text)) return;
+  if (!botMentionPattern.test(message.text)) {
+    console.log(`[MESSAGE] Skipping message - no bot mention detected`);
+    return;
+  }
+
+  console.log(`[MESSAGE] Processing message with bot mention:`, {
+    messageId: message.ts,
+    channel: message.channel,
+    text: message.text,
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     const messageText = await handler.fetchThreadHistory(message, { client });
+
+    console.log(`[MESSAGE] Processing message:`, {
+      originalText: message.text,
+      processedText: messageText,
+      channel: message.channel,
+      threadTs: "thread_ts" in message ? message.thread_ts : undefined,
+      timestamp: new Date().toISOString(),
+    });
 
     await handler.handleMessage({
       text: messageText,
@@ -59,7 +122,20 @@ app.message(async ({ message, client }) => {
       ts: message.ts,
       context: { client },
     });
+
+    console.log(`[MESSAGE] Successfully processed message:`, {
+      messageId: message.ts,
+      channel: message.channel,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
+    console.error(`[MESSAGE] Error processing message:`, {
+      messageId: message.ts,
+      channel: message.channel,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString(),
+    });
+
     await client.chat.postMessage({
       channel: message.channel,
       text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
@@ -70,6 +146,10 @@ app.message(async ({ message, client }) => {
 
 const assistant = new Assistant({
   threadStarted: async ({ say, setSuggestedPrompts }) => {
+    console.log(`[ASSISTANT] Thread started:`, {
+      timestamp: new Date().toISOString(),
+    });
+
     await say(
       "Hi! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
     );
@@ -89,9 +169,19 @@ const assistant = new Assistant({
         },
       ],
     });
+
+    console.log(`[ASSISTANT] Thread started successfully`);
   },
 
   userMessage: async ({ message, say, setStatus }) => {
+    console.log(`[ASSISTANT] Received user message:`, {
+      messageId: message.ts || Date.now().toString(),
+      channel: message.channel,
+      text: "text" in message ? message.text : "no text",
+      threadTs: "thread_ts" in message ? message.thread_ts : undefined,
+      timestamp: new Date().toISOString(),
+    });
+
     try {
       await setStatus("is thinking...");
 
@@ -102,6 +192,7 @@ const assistant = new Assistant({
         let contextMessage = messageText;
 
         if (threadTs) {
+          console.log(`[ASSISTANT] Fetching thread history for context`);
           const threadContext = await fetchThreadHistory(
             app.client,
             message.channel,
@@ -110,8 +201,17 @@ const assistant = new Assistant({
 
           if (threadContext) {
             contextMessage = `${threadContext}\n\nCurrent message: ${messageText}`;
+            console.log(`[ASSISTANT] Thread context added to message`);
           }
         }
+
+        console.log(`[ASSISTANT] Processing assistant message:`, {
+          originalText: messageText,
+          processedText: contextMessage,
+          channel: message.channel,
+          threadTs: threadTs,
+          timestamp: new Date().toISOString(),
+        });
 
         await handler.handleMessage({
           text: contextMessage,
@@ -120,8 +220,23 @@ const assistant = new Assistant({
           ts: message.ts || Date.now().toString(),
           context: { say, setStatus },
         });
+
+        console.log(`[ASSISTANT] Successfully processed assistant message:`, {
+          messageId: message.ts || Date.now().toString(),
+          channel: message.channel,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        console.log(`[ASSISTANT] Skipping message - no text content`);
       }
     } catch (error) {
+      console.error(`[ASSISTANT] Error processing assistant message:`, {
+        messageId: message.ts || Date.now().toString(),
+        channel: message.channel,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      });
+
       await say("Sorry, I encountered an error. Please try again.");
     }
   },
