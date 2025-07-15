@@ -15,8 +15,7 @@ try {
 const app = new App({
   token: envConfig.SLACK_BOT_TOKEN,
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
-  socketMode: true,
-  appToken: envConfig.SLACK_APP_TOKEN,
+  socketMode: false,
 });
 
 const handler = new SlackMessageHandler(envConfig);
