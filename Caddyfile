@@ -1,0 +1,5 @@
+# Caddyfile for mintie-bot
+
+api.mintiedev.com {
+    reverse_proxy mintie-bot:3000
+}
