@@ -56,9 +56,16 @@ export function parseStreamingResponse(streamData: string): {
   const lines = streamData.split("\n").filter((line) => line.trim());
   let fullMessage = "";
   let sources: DocsLink[] = [];
+  let lastToolResultIndex = -1;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     try {
+      if (line.match(/^\d+:\[.*"type":"tool-result"/)) {
+        lastToolResultIndex = i;
+        continue;
+      }
+
       if (line.match(/^\d+:\[/)) {
         const jsonMatch = line.match(/^\d+:\["(.*)"\]$/);
         if (jsonMatch) {
@@ -87,6 +94,32 @@ export function parseStreamingResponse(streamData: string): {
     }
   }
 
+  if (lastToolResultIndex >= 0) {
+    let postToolContent = "";
+    for (let i = lastToolResultIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      try {
+        if (line.match(/^\d+:\[/)) {
+          const jsonMatch = line.match(/^\d+:\["(.*)"\]$/);
+          if (jsonMatch) {
+            const jsonString = jsonMatch[1]
+              .replace(/\\"/g, '"')
+              .replace(/\\\\/g, "\\");
+
+            const parsed = JSON.parse(jsonString);
+
+            if (parsed.type === "text-delta" && parsed.textDelta) {
+              postToolContent += parsed.textDelta;
+            }
+          }
+        }
+      } catch (parseError) {
+        console.debug("Skipping unparseable line:", line);
+      }
+    }
+    fullMessage = postToolContent;
+  }
+
   const cleanResponse = fullMessage
     .trim()
     .replace(/\\n/g, "\n")
@@ -97,10 +130,12 @@ export function parseStreamingResponse(streamData: string): {
     )
     .replace(/(^|\n)~~~\s*(?=\n|$)/g, `$1\`\`\`\n`)
     .replace(/~~~+/g, "```")
-    .replace(/```[^`]*\[([^\]]+)\]\(([^)]+)\)[^`]*```/g, (match, text, url) => {
-      const content = match.replace(/```[^\n]*\n?/g, "").replace(/\n?```/g, "");
-      return content;
-    });
+    .replace(
+      /```([^`]*)\[([^\]]+)\]\(([^)]+)\)([^`]*)```/g,
+      (match, before, text, url, after) => {
+        return `\`\`\`${before}${text}${after}\`\`\``;
+      },
+    );
 
   const finalResponse = cleanResponse
     .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (_, text, path) => {

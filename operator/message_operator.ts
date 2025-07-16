@@ -98,7 +98,7 @@ export class MessageOperator {
           ],
         },
       ],
-      slackAgent: false,
+      slackAgent: true,
     };
   }
 
