@@ -12,8 +12,6 @@
   "author": "vidyootsenthil",
   "license": "ISC",
   "dependencies": {
-    "@pulumi/aws": "^6.83.0",
-    "@pulumi/pulumi": "^3.182.0",
     "@slack/bolt": "^4.4.0",
     "@types/node": "^20.0.0",
     "dotenv": "^17.2.0",

@@ -248,6 +248,7 @@ app.assistant(assistant);
   try {
     await app.start();
     console.log(`mintie bot is running in socket mode!`);
+    console.log(`Instance ID: ${process.env.HOSTNAME}`);
     console.log("ready to help with Mintlify documentation queries");
   } catch (error) {
     console.error("failed to start the app:", error);
