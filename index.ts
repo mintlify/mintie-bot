@@ -57,6 +57,50 @@ app.event("app_mention", async ({ event, client }) => {
   }
 });
 
+app.event("message", async ({ event, client }) => {
+  if (event.subtype || event.bot_id) return;
+
+  const channelInfo = await client.conversations.info({
+    channel: event.channel,
+  });
+
+  if (channelInfo.channel?.name === "ask-ai") {
+    console.log(`[ASK_AI_CHANNEL] Received message in ask-ai channel:`, {
+      eventId: event.event_ts,
+      channel: event.channel,
+      user: event.user,
+      text: event.text,
+      threadTs: event.thread_ts,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      const messageText = await handler.fetchThreadHistory(event, { client });
+
+      await handler.handleMessage({
+        text: messageText,
+        channel: event.channel,
+        thread_ts: event.thread_ts,
+        ts: event.ts,
+        context: { client },
+      });
+    } catch (error) {
+      console.error(`[ASK_AI_CHANNEL] Error processing message:`, {
+        eventId: event.event_ts,
+        channel: event.channel,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      });
+
+      await client.chat.postMessage({
+        channel: event.channel,
+        text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
+        thread_ts: event.ts,
+      });
+    }
+  }
+});
+
 const assistant = new Assistant({
   threadStarted: async ({ say, setSuggestedPrompts }) => {
     await say(
