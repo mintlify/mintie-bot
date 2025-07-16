@@ -17,7 +17,7 @@ export class MessageOperator {
     docsDomainURL?: string,
   ) {
     this.client = client;
-    this.apiUrl = `http://localhost:5000/api/discovery/v1/assistant/${domain}/message`;
+    this.apiUrl = `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`;
     this.authToken = authToken;
     this.docsDomain = domain;
     this.docsDomainURL = docsDomainURL;
@@ -133,9 +133,17 @@ export class MessageOperator {
       },
       body: requestBody,
     })
-      .then((res) => res.text())
+      .then(async (res) => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(
+            `Mintlify API responded with status ${res.status}:`,
+            errorText,
+          );
+        }
+        return res.text();
+      })
       .catch((err) => {
-        console.error("Error making API request:", err);
         throw new Error(`Failed to call Mintlify API: ${err.message}`);
       });
 
