@@ -17,7 +17,7 @@ export class MessageOperator {
     docsDomainURL?: string,
   ) {
     this.client = client;
-    this.apiUrl = `https://leaves.mintlify.com/api/discovery/v1/assistant/${domain}/message`;
+    this.apiUrl = `http://localhost:5000/api/discovery/v1/assistant/${domain}/message`;
     this.authToken = authToken;
     this.docsDomain = domain;
     this.docsDomainURL = docsDomainURL;
@@ -98,6 +98,7 @@ export class MessageOperator {
           ],
         },
       ],
+      slackAgent: false,
     };
   }
 

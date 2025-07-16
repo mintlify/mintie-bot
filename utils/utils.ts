@@ -103,21 +103,21 @@ export function parseStreamingResponse(streamData: string): {
     });
 
   const finalResponse = cleanResponse
-    .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, path) => {
+    .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (_, text, path) => {
       const baseUrl =
         process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
-    .replace(/\(([^)]+)\)\[\/([^\]]+)\]/g, (match, text, path) => {
+    .replace(/\(([^)]+)\)\[\/([^\]]+)\]/g, (_, text, path) => {
       const baseUrl =
         process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
-    .replace(/\(([^)]+)\)\[([^\]]+)\]/g, (match, text, path) => {
+    .replace(/\(([^)]+)\)\[([^\]]+)\]/g, (_, text, path) => {
       const baseUrl =
         process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";

@@ -36,6 +36,7 @@ export interface MintlifyMessage {
 export interface MintlifyApiRequest {
   fp: string;
   messages: MintlifyMessage[];
+  slackAgent: boolean;
 }
 
 export interface DocsLink {
