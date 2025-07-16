@@ -1,9 +1,6 @@
 import { WebClient } from "@slack/web-api";
-import {
-  StatusManager,
-  createInitialMessage,
-  generateFingerprint,
-} from "../utils/utils";
+import { createInitialMessage, generateFingerprint } from "../utils/utils";
+import { StatusManager } from "../utils/status_manager";
 import { MintlifyApiRequest } from "../types";
 
 export class MessageOperator {
