@@ -56,16 +56,29 @@ export function parseStreamingResponse(streamData: string): {
   const lines = streamData.split("\n").filter((line) => line.trim());
   let fullMessage = "";
   let sources: DocsLink[] = [];
-  let lastToolResultIndex = -1;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    try {
-      if (line.match(/^\d+:\[.*"type":"tool-result"/)) {
-        lastToolResultIndex = i;
-        continue;
+  const messageBlocks: string[][] = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (line.match(/^f:\{"messageId":/)) {
+      if (currentBlock.length > 0) {
+        messageBlocks.push(currentBlock);
       }
+      currentBlock = [line];
+    } else {
+      currentBlock.push(line);
+    }
+  }
 
+  if (currentBlock.length > 0) {
+    messageBlocks.push(currentBlock);
+  }
+
+  const finalBlock = messageBlocks[messageBlocks.length - 1] || [];
+
+  for (const line of finalBlock) {
+    try {
       if (line.match(/^\d+:\[/)) {
         const jsonMatch = line.match(/^\d+:\["(.*)"\]$/);
         if (jsonMatch) {
@@ -92,32 +105,6 @@ export function parseStreamingResponse(streamData: string): {
     } catch (parseError) {
       console.debug("Skipping unparseable line:", line);
     }
-  }
-
-  if (lastToolResultIndex >= 0) {
-    let postToolContent = "";
-    for (let i = lastToolResultIndex + 1; i < lines.length; i++) {
-      const line = lines[i];
-      try {
-        if (line.match(/^\d+:\[/)) {
-          const jsonMatch = line.match(/^\d+:\["(.*)"\]$/);
-          if (jsonMatch) {
-            const jsonString = jsonMatch[1]
-              .replace(/\\"/g, '"')
-              .replace(/\\\\/g, "\\");
-
-            const parsed = JSON.parse(jsonString);
-
-            if (parsed.type === "text-delta" && parsed.textDelta) {
-              postToolContent += parsed.textDelta;
-            }
-          }
-        }
-      } catch (parseError) {
-        console.debug("Skipping unparseable line:", line);
-      }
-    }
-    fullMessage = postToolContent;
   }
 
   const cleanResponse = fullMessage
