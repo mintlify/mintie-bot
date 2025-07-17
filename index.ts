@@ -2,6 +2,7 @@ require("dotenv").config();
 import { App, Assistant } from "@slack/bolt";
 import { SlackMessageHandler } from "./handler/slack_handler";
 import { validateEnvironment, fetchThreadHistory } from "./utils/utils";
+import { MentionHandler } from "./handler/mention_handler";
 
 let envConfig;
 try {
@@ -20,41 +21,10 @@ const app = new App({
 });
 
 const handler = new SlackMessageHandler(envConfig);
+const new_handler = new MentionHandler(envConfig);
 
 app.event("app_mention", async ({ event, client }) => {
-  console.log(`[APP_MENTION] Received mention event:`, {
-    eventId: event.event_ts,
-    channel: event.channel,
-    user: event.user,
-    text: event.text,
-    threadTs: event.thread_ts,
-    timestamp: new Date().toISOString(),
-  });
-
-  try {
-    const messageText = await handler.fetchThreadHistory(event, { client });
-
-    await handler.handleMessage({
-      text: messageText,
-      channel: event.channel,
-      thread_ts: event.thread_ts,
-      ts: event.ts,
-      context: { client },
-    });
-  } catch (error) {
-    console.error(`[APP_MENTION] Error processing mention event:`, {
-      eventId: event.event_ts,
-      channel: event.channel,
-      error: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString(),
-    });
-
-    await client.chat.postMessage({
-      channel: event.channel,
-      text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
-      thread_ts: event.ts,
-    });
-  }
+  await new_handler.handleMention(event, client);
 });
 
 app.event("message", async ({ event, client }) => {
