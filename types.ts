@@ -5,22 +5,8 @@ export interface envVars {
   MINTLIFY_AUTH_TOKEN: string;
   MINTLIFY_DOCS_DOMAIN: string;
   MINTLIFY_DOCS_DOMAIN_URL?: string;
+  MINTLIFY_API_URL?: string;
   PORT?: string;
-}
-
-export interface MentionMessageRequest {
-  text: string;
-  user: string;
-  channel: string;
-  ts: string;
-  isDirectMessage: boolean;
-}
-
-export interface MentionMessageResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-  data?: MentionMessageRequest;
 }
 
 export interface MintlifyMessage {
