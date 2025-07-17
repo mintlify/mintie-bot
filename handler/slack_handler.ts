@@ -4,9 +4,9 @@ import { MessageOperator } from "../operator/message_operator";
 import { extractUserMessage, fetchThreadHistory } from "../utils/utils";
 
 export class SlackMessageHandler {
-  private client: WebClient;
-  private messageOperator: MessageOperator;
-  private env: envVars;
+  public client: WebClient;
+  public messageOperator: MessageOperator;
+  public env: envVars;
 
   constructor(env: envVars) {
     this.env = env;

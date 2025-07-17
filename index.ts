@@ -1,15 +1,23 @@
 require("dotenv").config();
 import { App, Assistant } from "@slack/bolt";
-import { SlackMessageHandler } from "./handler/slack_handler";
-import { validateEnvironment, fetchThreadHistory } from "./utils/utils";
-import { MentionHandler } from "./handler/mention_handler";
+import { validateEnvironment } from "./utils/utils";
+import { MentionHandler } from "./handler/event_handler";
+import { AssistantHandler } from "./handler/assistant_handler";
+import { EventType, logEvent } from "./utils/logging";
 
 let envConfig;
 try {
   envConfig = validateEnvironment();
-  console.log("environment variables set successfully");
+  logEvent({
+    text: "Environment variables validated",
+    eventType: EventType.APP_INFO,
+  });
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  logEvent({
+    text: "Failed to validate environment variables",
+    event: error,
+    eventType: EventType.APP_STARTUP_ERROR,
+  });
   process.exit(1);
 }
 
@@ -20,136 +28,46 @@ const app = new App({
   appToken: envConfig.SLACK_APP_TOKEN,
 });
 
-const handler = new SlackMessageHandler(envConfig);
-const new_handler = new MentionHandler(envConfig);
+const eventHandler = new MentionHandler(envConfig);
+const assistantHandler = new AssistantHandler(envConfig);
+const assistant = assistantHandler.createAssistant();
 
 app.event("app_mention", async ({ event, client }) => {
-  await new_handler.handleMention(event, client);
+  await eventHandler.handleChannelMention(event, client);
 });
 
 app.event("message", async ({ event, client }) => {
-  if (event.subtype || event.bot_id) return;
-
-  const channelInfo = await client.conversations.info({
-    channel: event.channel,
-  });
-
-  if (channelInfo.channel?.name === "ask-ai") {
-    console.log(`[ASK_AI_CHANNEL] Received message in ask-ai channel:`, {
-      eventId: event.event_ts,
-      channel: event.channel,
-      user: event.user,
-      text: event.text,
-      threadTs: event.thread_ts,
-      timestamp: new Date().toISOString(),
-    });
-
-    try {
-      const messageText = await handler.fetchThreadHistory(event, { client });
-
-      await handler.handleMessage({
-        text: messageText,
-        channel: event.channel,
-        thread_ts: event.thread_ts,
-        ts: event.ts,
-        context: { client },
-      });
-    } catch (error) {
-      console.error(`[ASK_AI_CHANNEL] Error processing message:`, {
-        eventId: event.event_ts,
-        channel: event.channel,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      });
-
-      await client.chat.postMessage({
-        channel: event.channel,
-        text: "Hey there! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
-        thread_ts: event.ts,
-      });
-    }
-  }
+  await eventHandler.handleChannelMessage(event, client);
 });
-
-const assistant = new Assistant({
-  threadStarted: async ({ say, setSuggestedPrompts }) => {
-    await say(
-      "Hi! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
-    );
-    await setSuggestedPrompts({
-      prompts: [
-        {
-          title: "Getting Started",
-          message: "What is the getting started process?",
-        },
-        {
-          title: "Search Documentation",
-          message: "How do I search for specific documentation?",
-        },
-        {
-          title: "API Integration",
-          message: "How do I integrate with the Mintlify API?",
-        },
-      ],
-    });
-  },
-
-  userMessage: async ({ message, say, setStatus }) => {
-    try {
-      await setStatus("is thinking...");
-
-      const messageText = "text" in message ? message.text : "";
-      const threadTs = "thread_ts" in message ? message.thread_ts : undefined;
-
-      if (messageText) {
-        let contextMessage = messageText;
-
-        if (threadTs) {
-          const threadContext = await fetchThreadHistory(
-            app.client,
-            message.channel,
-            threadTs,
-          );
-
-          if (threadContext) {
-            contextMessage = `${threadContext}\n\nCurrent message: ${messageText}`;
-          }
-        }
-
-        await handler.handleMessage({
-          text: contextMessage,
-          channel: message.channel,
-          thread_ts: threadTs,
-          ts: message.ts || Date.now().toString(),
-          context: { say, setStatus },
-        });
-      } else {
-      }
-    } catch (error) {
-      await say("Sorry, I encountered an error. Please try again.");
-    }
-  },
-});
-
-app.assistant(assistant);
 
 (async () => {
   try {
+    app.assistant(await assistant);
     await app.start();
-    console.log(`mintie bot is running in socket mode!`);
-    console.log(`Instance ID: ${process.env.HOSTNAME}`);
-    console.log("ready to help with Mintlify documentation queries");
+    logEvent({
+      text: "Mintie bot is running in socket mode",
+      eventType: EventType.APP_INFO,
+    });
   } catch (error) {
-    console.error("failed to start the app:", error);
+    logEvent({
+      text: "Failed to start the app",
+      eventType: EventType.APP_STARTUP_ERROR,
+    });
     process.exit(1);
   }
 })();
 
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  logEvent({
+    text: "Unhandled rejection",
+    eventType: EventType.APP_ERROR,
+  });
 });
 
 process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
+  logEvent({
+    text: "Uncaught exception",
+    eventType: EventType.APP_ERROR,
+  });
   process.exit(1);
 });
