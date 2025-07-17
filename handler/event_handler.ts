@@ -1,7 +1,7 @@
 import { EventType, logEvent } from "../utils/logging";
 import { WebClient } from "@slack/web-api";
 import { fetchThreadHistory } from "../utils/utils";
-import { processMessage } from "../operator/message_operator";
+import { processMessage } from "../operator/event_operator";
 
 async function handleChannelMention(event: any, client: WebClient) {
   logEvent({ event, eventType: EventType.APP_CHANNEL_MENTION });
@@ -48,14 +48,14 @@ async function handleChannelMessage(event: any, client: WebClient) {
     logEvent({ event, eventType: EventType.APP_CHANNEL_MESSAGE });
 
     let messageText = event.text || "";
-    
+
     if (event.thread_ts) {
       const threadContext = await fetchThreadHistory(
         client,
         event.channel,
         event.thread_ts,
       );
-      
+
       if (threadContext) {
         messageText = `${threadContext}\n\nCurrent message: ${messageText}`;
       }
