@@ -1,11 +1,16 @@
 require("dotenv").config();
-import { App, Assistant } from "@slack/bolt";
+import { App } from "@slack/bolt";
 import { validateEnvironment } from "./utils/utils";
-import { MentionHandler } from "./handler/event_handler";
-import { AssistantHandler } from "./handler/assistant_handler";
+import { createAssistant } from "./handler/assistant_handler";
 import { EventType, logEvent } from "./utils/logging";
+import { envVars } from "./types";
+import {
+  handleChannelMention,
+  handleChannelMessage,
+} from "./handler/event_handler";
 
-let envConfig;
+let envConfig: envVars;
+
 try {
   envConfig = validateEnvironment();
   logEvent({
@@ -28,16 +33,14 @@ const app = new App({
   appToken: envConfig.SLACK_APP_TOKEN,
 });
 
-const eventHandler = new MentionHandler(envConfig);
-const assistantHandler = new AssistantHandler(envConfig);
-const assistant = assistantHandler.createAssistant();
+const assistant = createAssistant(app.client);
 
-app.event("app_mention", async ({ event, client }) => {
-  await eventHandler.handleChannelMention(event, client);
+app.event("app_mention", async ({ event }) => {
+  await handleChannelMention(event, app.client);
 });
 
-app.event("message", async ({ event, client }) => {
-  await eventHandler.handleChannelMessage(event, client);
+app.event("message", async ({ event }) => {
+  await handleChannelMessage(event, app.client);
 });
 
 (async () => {
