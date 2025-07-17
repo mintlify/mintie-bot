@@ -66,6 +66,11 @@ async function createAssistant(client: WebClient) {
           await say("Please provide a message to continue.");
         }
       } catch (error) {
+        logEvent({
+          text: `Error processing message: ${error}`,
+          eventType: EventType.APP_ERROR,
+        });
+
         await say("Sorry, I encountered an error. Please try again.");
       }
     },

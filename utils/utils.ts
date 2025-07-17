@@ -62,7 +62,10 @@ export function parseStreamingResponse(streamData: string): {
         }
       }
     } catch (parseError) {
-      console.debug("Skipping unparseable line:", line);
+      logEvent({
+        text: `Error parsing streaming response: ${parseError}`,
+        eventType: EventType.APP_ERROR,
+      });
     }
   }
 

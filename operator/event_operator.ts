@@ -40,6 +40,11 @@ async function processMessage(
       statusManager.stop();
     }
 
+    logEvent({
+      text: `Error processing message: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+
     const errorThreadTs = statusManager?.messageTs;
 
     await client.chat.postMessage({
