@@ -10,12 +10,15 @@ function validateEnvironment(): envVars {
   const requiredVars: (keyof envVars)[] = [
     "SLACK_BOT_TOKEN",
     "SLACK_SIGNING_SECRET",
-    "SLACK_APP_TOKEN",
     "MINTLIFY_AUTH_TOKEN",
     "MINTLIFY_DOCS_DOMAIN",
+    "PORT",
   ];
 
-  const optionalVars: (keyof envVars)[] = ["MINTLIFY_DOCS_DOMAIN_URL", "PORT"];
+  const optionalVars: (keyof envVars)[] = [
+    "MINTLIFY_DOCS_DOMAIN_URL",
+    "MINTLIFY_API_URL",
+  ];
 
   const missing: string[] = [];
   const config: Partial<envVars> = {};

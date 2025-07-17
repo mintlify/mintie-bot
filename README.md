@@ -6,3 +6,5 @@
 - Operators are responsible for the business logic of the app
 - Utils contain basic utility functions like converting from to slack markdown format
 - Internal debugging and console logging is done using the logging.ts file
+
+- use the `/slack/events` with `tmole` port forwarding to localhost:3000
