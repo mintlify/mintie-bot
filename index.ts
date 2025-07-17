@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { App, type BlockButtonAction, LogLevel } from "@slack/bolt";
+import { App, LogLevel } from "@slack/bolt";
 import { getEnvs } from "./env_manager";
 import { createAssistant } from "./handler/assistant_handler";
 import {

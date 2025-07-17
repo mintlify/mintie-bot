@@ -8,3 +8,5 @@
 - Internal debugging and console logging is done using the logging.ts file
 
 - use the `/slack/events` with `tmole` port forwarding to localhost:3000
+
+- `npx eslint .` to run eslint

@@ -12,10 +12,10 @@ export interface MintlifyMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  parts: Array<{
+  parts: {
     type: "text";
     text: string;
-  }>;
+  }[];
 }
 
 export interface MintlifyApiRequest {
