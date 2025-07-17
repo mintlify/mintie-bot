@@ -1,16 +1,15 @@
 require("dotenv").config();
 import { App } from "@slack/bolt";
-import { validateEnvironment } from "./utils/utils";
 import { createAssistant } from "./handler/assistant_handler";
 import { EventType, logEvent } from "./utils/logging";
-import { envVars } from "./types";
 import {
   handleChannelMention,
   handleChannelMessage,
 } from "./handler/event_handler";
+import { validateEnvironment } from "./env_manager";
+import { envVars } from "./types";
 
 let envConfig: envVars;
-
 try {
   envConfig = validateEnvironment();
   logEvent({
@@ -49,6 +48,10 @@ app.event("message", async ({ event }) => {
     await app.start();
     logEvent({
       text: "Mintie bot is running in socket mode",
+      eventType: EventType.APP_INFO,
+    });
+    logEvent({
+      text: "Mintie bot is ready to help you with your documentation",
       eventType: EventType.APP_INFO,
     });
   } catch (error) {

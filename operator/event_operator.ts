@@ -2,6 +2,8 @@ import { WebClient } from "@slack/web-api";
 import { createInitialMessage, generateFingerprint } from "../utils/utils";
 import { StatusManager } from "../utils/status_manager";
 import { MintlifyApiRequest } from "../types";
+import { EventType, logEvent } from "../utils/logging";
+import { getEnvs } from "../env_manager";
 
 async function processMessage(
   client: WebClient,
@@ -27,15 +29,13 @@ async function processMessage(
       client,
       channel,
       messageTs,
-      process.env.MINTLIFY_DOCS_DOMAIN_URL,
+      getEnvs().MINTLIFY_DOCS_DOMAIN_URL,
     );
 
     statusManager.start();
 
     await generateResponse(apiRequest, statusManager);
   } catch (error) {
-    console.error("Error in message operator:", error);
-
     if (statusManager) {
       statusManager.stop();
     }
@@ -90,12 +90,14 @@ async function createMessage(apiRequest: MintlifyApiRequest): Promise<string> {
   const requestBody = JSON.stringify(apiRequest);
 
   const response = await fetch(
-    `https://api-dsc.mintlify.com/v1/assistant/${process.env.MINTLIFY_DOCS_DOMAIN}/message`,
+    `https://api-dsc.mintlify.com/v1/assistant/${
+      getEnvs().MINTLIFY_DOCS_DOMAIN
+    }/message`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `${process.env.MINTLIFY_AUTH_TOKEN}`,
+        Authorization: `${getEnvs().MINTLIFY_AUTH_TOKEN}`,
         "User-Agent": "Mintlify-Slack-Bot/1.0",
       },
       body: requestBody,
@@ -104,10 +106,10 @@ async function createMessage(apiRequest: MintlifyApiRequest): Promise<string> {
     .then(async (res) => {
       if (!res.ok) {
         const errorText = await res.text();
-        console.error(
-          `Mintlify API responded with status ${res.status}:`,
-          errorText,
-        );
+        logEvent({
+          event: errorText,
+          eventType: EventType.APP_GENERATE_MESSAGE_ERROR,
+        });
         return errorText;
       }
       return res.text();

@@ -1,48 +1,7 @@
 import { WebClient } from "@slack/web-api";
-import { envVars, DocsLink } from "../types";
-
-export function validateEnvironment(): envVars {
-  const requiredVars: (keyof envVars)[] = [
-    "SLACK_BOT_TOKEN",
-    "SLACK_SIGNING_SECRET",
-    "SLACK_APP_TOKEN",
-    "MINTLIFY_AUTH_TOKEN",
-    "MINTLIFY_DOCS_DOMAIN",
-  ];
-
-  const optionalVars: (keyof envVars)[] = ["MINTLIFY_DOCS_DOMAIN_URL", "PORT"];
-
-  const missing: string[] = [];
-  const config: Partial<envVars> = {};
-
-  for (const varName of requiredVars) {
-    const value = process.env[varName];
-
-    if (!value || value.trim() === "") {
-      missing.push(varName);
-    } else {
-      config[varName] = value;
-    }
-  }
-
-  for (const varName of optionalVars) {
-    const value = process.env[varName];
-    if (value && value.trim() !== "") {
-      config[varName] = value;
-    }
-  }
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}\n` +
-        "Please ensure all required environment variables are set in your .env file.",
-    );
-  }
-
-  return {
-    ...(config as envVars),
-  };
-}
+import { DocsLink } from "../types";
+import { EventType, logEvent } from "./logging";
+import { getEnvs } from "../env_manager";
 
 export function extractUserMessage(text: string): string {
   const botMentionPattern = /<@[UW][A-Z0-9]+>/g;
@@ -127,21 +86,21 @@ export function parseStreamingResponse(streamData: string): {
   const finalResponse = cleanResponse
     .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (_, text, path) => {
       const baseUrl =
-        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
     .replace(/\(([^)]+)\)\[\/([^\]]+)\]/g, (_, text, path) => {
       const baseUrl =
-        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
     .replace(/\(([^)]+)\)\[([^\]]+)\]/g, (_, text, path) => {
       const baseUrl =
-        process.env.MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
+        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
       const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
@@ -205,7 +164,10 @@ export async function fetchThreadHistory(
       return `Previous conversation context:\n${contextMessages}`;
     }
   } catch (error) {
-    console.warn("Failed to fetch thread history:", error);
+    logEvent({
+      event: error,
+      eventType: EventType.APP_ERROR,
+    });
   }
 
   return "";

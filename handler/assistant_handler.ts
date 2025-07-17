@@ -1,7 +1,7 @@
 import { Assistant } from "@slack/bolt";
 import { fetchThreadHistory } from "../utils/utils";
 import { EventType, logEvent } from "../utils/logging";
-import { processMessage } from "../operator/message_operator";
+import { processMessage } from "../operator/event_operator";
 import { WebClient } from "@slack/web-api";
 
 async function createAssistant(client: WebClient) {
