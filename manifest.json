@@ -12,7 +12,7 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://nom9uu-ip-108-91-117-220.tunnelmole.net/slack/oauth_redirect"
+      "https://f8ch84-ip-108-91-117-220.tunnelmole.net/slack/oauth_redirect"
     ],
     "scopes": {
       "bot": [
@@ -33,7 +33,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://nom9uu-ip-108-91-117-220.tunnelmole.net/slack/events",
+      "request_url": "https://f8ch84-ip-108-91-117-220.tunnelmole.net/slack/events",
       "bot_events": [
         "app_mention",
         "assistant_thread_context_changed",
