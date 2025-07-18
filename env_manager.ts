@@ -13,6 +13,8 @@ function validateEnvironment(): envVars {
     "MINTLIFY_AUTH_TOKEN",
     "MINTLIFY_DOCS_DOMAIN",
     "PORT",
+    "SLACK_CLIENT_ID",
+    "SLACK_CLIENT_SECRET",
   ];
 
   const optionalVars: (keyof envVars)[] = [

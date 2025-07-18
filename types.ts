@@ -6,6 +6,8 @@ export interface envVars {
   MINTLIFY_DOCS_DOMAIN_URL: string;
   MINTLIFY_API_URL: string;
   PORT: string;
+  SLACK_CLIENT_ID: string;
+  SLACK_CLIENT_SECRET: string;
 }
 
 export interface MintlifyMessage {

@@ -9,13 +9,34 @@ import {
   handleChannelMessage,
 } from "./handler/event_handler";
 import { EventType, logEvent } from "./utils/logging";
+import { FileInstallationStore } from "@slack/oauth";
 
 const envConfig = getEnvs();
 
 const app = new App({
-  token: envConfig.SLACK_BOT_TOKEN,
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
+  clientId: envConfig.SLACK_CLIENT_ID,
+  clientSecret: envConfig.SLACK_CLIENT_SECRET,
+  stateSecret: "my-secret",
   logLevel: LogLevel.ERROR,
+  installationStore: new FileInstallationStore(),
+  scopes: [
+    "app_mentions:read",
+    "assistant:write",
+    "channels:history",
+    "chat:write",
+    "chat:write.customize",
+    "commands",
+    "groups:history",
+    "im:history",
+    "im:read",
+    "im:write",
+    "mpim:history",
+    "channels:read",
+  ],
+  installerOptions: {
+    stateVerification: false,
+  },
 });
 
 app.use(async ({ next }) => {

@@ -1,0 +1,51 @@
+{
+  "display_information": {
+    "name": "mintie-test-bot",
+    "description": "Your mintlify docs assistant.",
+    "background_color": "#0d9373"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "mintie-bot",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://nom9uu-ip-108-91-117-220.tunnelmole.net/slack/oauth_redirect"
+    ],
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "assistant:write",
+        "channels:history",
+        "chat:write",
+        "chat:write.customize",
+        "commands",
+        "groups:history",
+        "im:history",
+        "im:read",
+        "im:write",
+        "mpim:history",
+        "channels:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://nom9uu-ip-108-91-117-220.tunnelmole.net/slack/events",
+      "bot_events": [
+        "app_mention",
+        "assistant_thread_context_changed",
+        "assistant_thread_started",
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "message.mpim"
+      ]
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
