@@ -13,7 +13,18 @@ import workspaceAuth from "./database/auth/workspace_install";
 import uninstallApp from "./database/auth/uninstall_app";
 import dbQuery from "./database/get_user";
 import db from "./database/db";
-import { Installation, InstallationQuery } from "@slack/bolt";
+import {
+  Installation,
+  InstallationQuery,
+  InstallURLOptions,
+  CodedError,
+} from "@slack/bolt";
+import { IncomingMessage, ServerResponse } from "http";
+import {
+  openMintlifyConfigModal,
+  handleMintlifyConfigSubmission,
+} from "./handler/mintlify_modal";
+import { ChannelMentionEvent } from "./types";
 
 const envConfig = getEnvs();
 
@@ -39,6 +50,106 @@ const app = new App({
   ],
   installerOptions: {
     stateVerification: false,
+    callbackOptions: {
+      success: async (
+        installation: Installation<"v1" | "v2", boolean>,
+        installOptions: InstallURLOptions,
+        req: IncomingMessage,
+        res: ServerResponse,
+      ) => {
+        try {
+          logEvent({
+            text: `Installation successful for team ${installation.team?.id}`,
+            eventType: EventType.APP_INFO,
+          });
+
+          res?.writeHead(200, { "Content-Type": "text/html" });
+          res?.end(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Mintie Installation Complete</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .container { max-width: 500px; margin: 0 auto; }
+                .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
+                .message { color: #333; font-size: 16px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="success">Installation Successful!</div>
+                <div class="message">Please check your Slack for next steps.</div>
+              </div>
+            </body>
+            </html>
+          `);
+
+          // Send welcome message after response is sent
+          setTimeout(async () => {
+            try {
+              const { WebClient } = await import("@slack/web-api");
+              const client = new WebClient(installation.bot?.token);
+
+              await client.chat.postMessage({
+                channel: installation.user?.id,
+                text: "🎉 Welcome to Mintie! To get started, please configure your Mintlify settings.",
+                blocks: [
+                  {
+                    type: "section",
+                    text: {
+                      type: "mrkdwn",
+                      text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify setup. Please click the button below to configure your settings.",
+                    },
+                  },
+                  {
+                    type: "actions",
+                    elements: [
+                      {
+                        type: "button",
+                        text: {
+                          type: "plain_text",
+                          text: "Configure Mintlify",
+                        },
+                        action_id: "configure_mintlify",
+                        style: "primary",
+                      },
+                    ],
+                  },
+                ],
+              });
+            } catch (error) {
+              logEvent({
+                text: `Error sending welcome message: ${error}`,
+                eventType: EventType.APP_ERROR,
+              });
+            }
+          }, 1000);
+        } catch (error) {
+          logEvent({
+            text: `Error in installation success callback: ${error}`,
+            eventType: EventType.APP_ERROR,
+          });
+          res?.writeHead(500);
+          res?.end(
+            "Installation completed but there was an error setting up the configuration.",
+          );
+        }
+      },
+      failure: (
+        error: CodedError,
+        installOptions: InstallURLOptions,
+        req: IncomingMessage,
+        res: ServerResponse,
+      ) => {
+        logEvent({
+          text: `Installation failed: ${error}`,
+          eventType: EventType.APP_ERROR,
+        });
+        res?.writeHead(500);
+        res?.end("Installation failed. Please try again.");
+      },
+    },
   },
   installationStore: {
     storeInstallation: async (
@@ -66,6 +177,71 @@ app.use(async ({ next }) => {
   await next();
 });
 
+app.action("configure_mintlify", async ({ ack, body, client, context }) => {
+  await ack();
+
+  try {
+    const teamId = context.teamId;
+    if (!teamId) {
+      throw new Error("Team ID not found in context");
+    }
+
+    const triggerId = "trigger_id" in body ? body.trigger_id : "";
+    await openMintlifyConfigModal(client, triggerId, teamId);
+
+    logEvent({
+      text: `User clicked configure Mintlify button for team ${teamId}`,
+      eventType: EventType.APP_INFO,
+    });
+  } catch (error) {
+    logEvent({
+      text: `Error handling configure Mintlify action: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+  }
+});
+
+app.view("mintlify_config_modal", async ({ ack, view, client }) => {
+  try {
+    const response = await handleMintlifyConfigSubmission({ view });
+
+    if (response.response_action === "errors") {
+      await ack({
+        response_action: "errors" as const,
+        errors: response.errors,
+      });
+    } else {
+      await ack();
+    }
+
+    if (response.response_action === "clear") {
+      // Send a confirmation message
+      const { private_metadata } = view;
+      const { teamId } = JSON.parse(private_metadata);
+
+      const installation = await dbQuery.findUser(teamId);
+      if (installation?.user?.id) {
+        await client.chat.postMessage({
+          channel: installation.user.id,
+          text: "Mintlify configuration saved successfully! You're all set to use Mintie for your documentation needs.",
+        });
+      }
+    }
+  } catch (error) {
+    logEvent({
+      text: `Error handling Mintlify config modal submission: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+    await ack({
+      response_action: "errors" as const,
+      errors: {
+        domain_block:
+          "An error occurred while saving your configuration. Please try again.",
+      },
+    });
+  }
+});
+
 app.event("app_mention", async ({ event, client }) => {
   try {
     await handleChannelMention(event, client);
@@ -80,7 +256,7 @@ app.event("app_mention", async ({ event, client }) => {
 
 app.message(async ({ message, client }) => {
   try {
-    await handleChannelMessage(message, client);
+    await handleChannelMessage(message as ChannelMentionEvent, client);
   } catch (error) {
     logEvent({
       text: "Error handling message",

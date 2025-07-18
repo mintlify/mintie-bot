@@ -1,9 +1,10 @@
 import { WebClient } from "@slack/web-api";
 import { createInitialMessage, generateFingerprint } from "../utils/utils";
 import { StatusManager } from "../utils/status_manager";
-import { MintlifyApiRequest } from "../types";
+import { MintlifyApiRequest, MintlifyConfig } from "../types";
 import { EventType, logEvent } from "../utils/logging";
 import { getEnvs } from "../env_manager";
+import dbQuery from "../database/get_user";
 
 async function processMessage(
   client: WebClient,
@@ -15,6 +16,21 @@ async function processMessage(
   let statusManager: StatusManager | null = null;
 
   try {
+    const authTest = await client.auth.test();
+    const teamId = authTest.team_id || "";
+
+    const teamData = await dbQuery.findUser(teamId);
+    const mintlifyConfig = teamData?.mintlify as MintlifyConfig;
+
+    if (!mintlifyConfig?.isConfigured) {
+      await client.chat.postMessage({
+        channel,
+        text: "Hi! I'm Mintie, your Mintlify documentation assistant. To get started, please complete your Mintlify setup by clicking the 'Configure Mintlify' button that was sent when you installed the app.",
+        thread_ts: threadTs || originalMessageTs,
+      });
+      return;
+    }
+
     const fingerprint = generateFingerprint(channel, threadTs);
     const apiRequest = formatApiRequest(userMessage, fingerprint);
 
@@ -29,12 +45,12 @@ async function processMessage(
       client,
       channel,
       messageTs,
-      getEnvs().MINTLIFY_DOCS_DOMAIN_URL,
+      mintlifyConfig.url || getEnvs().MINTLIFY_DOCS_DOMAIN_URL,
     );
 
     statusManager.start();
 
-    await generateResponse(apiRequest, statusManager);
+    await generateResponse(apiRequest, statusManager, mintlifyConfig);
   } catch (error) {
     if (statusManager) {
       statusManager.stop();
@@ -83,26 +99,28 @@ function formatApiRequest(
 async function generateResponse(
   apiRequest: MintlifyApiRequest,
   statusManager: StatusManager,
+  mintlifyConfig: MintlifyConfig,
 ): Promise<void> {
-  const response = await createMessage(apiRequest);
+  const response = await createMessage(apiRequest, mintlifyConfig);
 
   if (response) {
     await statusManager.finalUpdate(response);
   }
 }
 
-async function createMessage(apiRequest: MintlifyApiRequest): Promise<string> {
+async function createMessage(
+  apiRequest: MintlifyApiRequest,
+  mintlifyConfig: MintlifyConfig,
+): Promise<string> {
   const requestBody = JSON.stringify(apiRequest);
 
   const response = await fetch(
-    `https://api-dsc.mintlify.com/v1/assistant/${
-      getEnvs().MINTLIFY_DOCS_DOMAIN
-    }/message`,
+    `https://api-dsc.mintlify.com/v1/assistant/${mintlifyConfig.domain}/message`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `${getEnvs().MINTLIFY_AUTH_TOKEN}`,
+        Authorization: `${mintlifyConfig.authKey}`,
         "User-Agent": "Mintlify-Slack-Bot/1.0",
       },
       body: requestBody,
