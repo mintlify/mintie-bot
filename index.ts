@@ -10,6 +10,7 @@ import {
 } from "./handler/event_handler";
 import { EventType, logEvent } from "./utils/logging";
 import workspaceAuth from "./database/auth/workspace_install";
+import uninstallApp from "./database/auth/uninstall_app";
 import dbQuery from "./database/get_user";
 import db from "./database/db";
 import { Installation, InstallationQuery } from "@slack/bolt";
@@ -84,6 +85,59 @@ app.message(async ({ message, client }) => {
     logEvent({
       text: "Error handling message",
       event: error,
+      eventType: EventType.APP_ERROR,
+    });
+  }
+});
+
+app.event("tokens_revoked", async ({ event }) => {
+  try {
+    logEvent({
+      text: `Tokens revoked event received: ${JSON.stringify(event)}`,
+      eventType: EventType.APP_INFO,
+    });
+
+    if (event.tokens?.oauth) {
+      const teamIds = event.tokens.oauth;
+      for (const teamId of teamIds) {
+        await uninstallApp.uninstallApp(teamId);
+        logEvent({
+          text: `Removed installation for revoked team: ${teamId}`,
+          eventType: EventType.APP_INFO,
+        });
+      }
+    }
+  } catch (error) {
+    logEvent({
+      text: `Error handling token revocation: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+  }
+});
+
+app.event("app_uninstalled", async ({ event, context }) => {
+  try {
+    logEvent({
+      text: `App uninstalled event received: ${JSON.stringify(event)}`,
+      eventType: EventType.APP_INFO,
+    });
+
+    const teamId = context.teamId;
+    if (teamId) {
+      await uninstallApp.uninstallApp(teamId);
+      logEvent({
+        text: `Removed installation for uninstalled team: ${teamId}`,
+        eventType: EventType.APP_INFO,
+      });
+    } else {
+      logEvent({
+        text: "App uninstalled but no team ID found in context",
+        eventType: EventType.APP_ERROR,
+      });
+    }
+  } catch (error) {
+    logEvent({
+      text: `Error handling app uninstallation: ${error}`,
       eventType: EventType.APP_ERROR,
     });
   }

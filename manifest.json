@@ -36,12 +36,14 @@
       "request_url": "https://f8ch84-ip-108-91-117-220.tunnelmole.net/slack/events",
       "bot_events": [
         "app_mention",
+        "app_uninstalled",
         "assistant_thread_context_changed",
         "assistant_thread_started",
         "message.channels",
         "message.groups",
         "message.im",
-        "message.mpim"
+        "message.mpim",
+        "tokens_revoked"
       ]
     },
     "org_deploy_enabled": false,
