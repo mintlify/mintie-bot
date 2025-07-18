@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { EventType, logEvent } from "../utils/logging";
 dotenv.config();
 
 const uri = process.env.MONGODB_URI || "";
@@ -7,9 +8,15 @@ const uri = process.env.MONGODB_URI || "";
 const connect = async function () {
   try {
     await mongoose.connect(uri);
-    console.log("✅ Connected to MongoDB successfully");
+    logEvent({
+      text: "Connected to MongoDB",
+      eventType: EventType.APP_INFO,
+    });
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error);
+    logEvent({
+      text: "Failed to connect to MongoDB",
+      eventType: EventType.APP_INFO,
+    });
     throw error;
   }
 };
