@@ -2,11 +2,12 @@ import { Assistant } from "@slack/bolt";
 import { fetchThreadHistory } from "../utils/utils";
 import { EventType, logEvent } from "../utils/logging";
 import { processMessage } from "../operator/event_operator";
-import { WebClient } from "@slack/web-api";
 
-async function createAssistant(client: WebClient) {
+async function createAssistant() {
+  console.log("Creating assistant...");
   return new Assistant({
     threadStarted: async ({ say, setSuggestedPrompts }) => {
+      console.log("Assistant threadStarted handler called");
       await say(
         "Hi! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
       );
@@ -27,7 +28,8 @@ async function createAssistant(client: WebClient) {
         ],
       });
     },
-    userMessage: async ({ message, say, setStatus }) => {
+    userMessage: async ({ message, say, setStatus, client }) => {
+      console.log("Assistant userMessage handler called");
       logEvent({
         text: `Received direct message: ${
           "text" in message ? message.text : ""
@@ -37,6 +39,11 @@ async function createAssistant(client: WebClient) {
 
       try {
         await setStatus("is thinking...");
+
+        console.log(
+          "Assistant client token (first 20 chars):",
+          client.token?.substring(0, 20),
+        );
 
         const messageText = "text" in message ? message.text : "";
         const threadTs = "thread_ts" in message ? message.thread_ts : undefined;
