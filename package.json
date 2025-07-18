@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@slack/bolt": "^4.4.0",
+    "@slack/oauth": "^3.0.3",
     "@types/node": "^20.0.0",
     "dotenv": "^17.2.0",
     "node-fetch": "^3.3.2",
