@@ -1,9 +1,13 @@
+import { ChannelMentionEvent } from "./../types";
 import { EventType, logEvent } from "../utils/logging";
 import { WebClient } from "@slack/web-api";
 import { fetchThreadHistory } from "../utils/utils";
 import { processMessage } from "../operator/event_operator";
 
-async function handleChannelMention(event: any, client: WebClient) {
+async function handleChannelMention(
+  event: ChannelMentionEvent,
+  client: WebClient,
+) {
   logEvent({ event, eventType: EventType.APP_CHANNEL_MENTION });
 
   const contextMessage = await fetchThreadHistory(
@@ -37,7 +41,10 @@ async function handleChannelMention(event: any, client: WebClient) {
   }
 }
 
-async function handleChannelMessage(event: any, client: WebClient) {
+async function handleChannelMessage(
+  event: ChannelMentionEvent,
+  client: WebClient,
+) {
   if (event.subtype || event.bot_id) return;
 
   const channelInfo = await client.conversations.info({

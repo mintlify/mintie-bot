@@ -1,5 +1,5 @@
 import { WebClient } from "@slack/web-api";
-import { DocsLink } from "../types";
+import { Block, DocsLink } from "../types";
 import { parseStreamingResponse } from "./utils";
 
 export class StatusManager {
@@ -107,8 +107,8 @@ export class StatusManager {
   private buildSecondMessageBlocks(
     content: string,
     sources: DocsLink[],
-  ): any[] {
-    const blocks: any[] = [];
+  ): Block[] {
+    const blocks: Block[] = [];
 
     blocks.push({
       type: "markdown",
@@ -132,8 +132,8 @@ export class StatusManager {
     return blocks;
   }
 
-  private buildMessageBlocks(content: string, sources: DocsLink[]): any[] {
-    const blocks: any[] = [];
+  private buildMessageBlocks(content: string, sources: DocsLink[]): Block[] {
+    const blocks: Block[] = [];
 
     blocks.push({
       type: "markdown",

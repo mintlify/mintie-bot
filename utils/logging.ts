@@ -11,6 +11,7 @@ export enum EventType {
 
 export interface LogEvent {
   eventType: EventType;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   event?: any;
   text?: string;
 }

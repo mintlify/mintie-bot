@@ -37,6 +37,12 @@ const usersSchema = new mongoose.Schema(
       userId: String,
       id: String,
     },
+    mintlify: {
+      domain: String,
+      url: String,
+      authKey: String,
+      isConfigured: { type: Boolean, default: false },
+    },
   },
   { _id: false },
 );
