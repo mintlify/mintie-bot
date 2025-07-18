@@ -9,7 +9,6 @@ import {
   handleChannelMessage,
 } from "./handler/event_handler";
 import { EventType, logEvent } from "./utils/logging";
-import orgAuth from "./database/auth/org_install";
 import workspaceAuth from "./database/auth/workspace_install";
 import dbQuery from "./database/get_user";
 import db from "./database/db";
@@ -44,29 +43,14 @@ const app = new App({
     storeInstallation: async (
       installation: Installation<"v1" | "v2", boolean>,
     ) => {
-      if (
-        installation.isEnterpriseInstall &&
-        installation.enterprise !== undefined
-      ) {
-        await orgAuth.saveUserOrgInstall(installation);
-        return;
-      }
-      if (installation.team !== undefined) {
+      try {
         await workspaceAuth.saveUserWorkspaceInstall(installation);
-        return;
+      } catch {
+        throw new Error("Failed saving installation data to installationStore");
       }
-      throw new Error("Failed saving installation data to installationStore");
     },
     fetchInstallation: async (installQuery: InstallationQuery<boolean>) => {
-      if (
-        installQuery.isEnterpriseInstall &&
-        installQuery.enterpriseId !== undefined
-      ) {
-        return (await dbQuery.findUser(
-          installQuery.enterpriseId,
-        )) as Installation<"v1" | "v2", boolean>;
-      }
-      if (installQuery.teamId !== undefined) {
+      if (installQuery.teamId) {
         return (await dbQuery.findUser(installQuery.teamId)) as Installation<
           "v1" | "v2",
           boolean

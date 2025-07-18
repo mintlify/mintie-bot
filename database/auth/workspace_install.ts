@@ -1,12 +1,13 @@
+import { EventType, logEvent } from "../../utils/logging";
 import model from "../db";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const saveUserWorkspaceInstall = async (installation: any) => {
   try {
-    console.log(
-      "Attempting to save workspace installation for team ID:",
-      installation.team.id,
-    );
+    logEvent({
+      text: `Attempting to save workspace installation for team ID: ${installation.team.id}`,
+      eventType: EventType.APP_INFO,
+    });
     const resp = await model.SlackUser.updateOne(
       { _id: installation.team.id },
       {
@@ -27,10 +28,16 @@ const saveUserWorkspaceInstall = async (installation: any) => {
       },
       { upsert: true },
     );
-    console.log("Workspace installation save result:", resp);
+    logEvent({
+      text: `Workspace installation save result: ${resp}`,
+      eventType: EventType.APP_INFO,
+    });
     return resp;
   } catch (error) {
-    console.error("Error saving workspace installation:", error);
+    logEvent({
+      text: `Error saving workspace installation: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
     return error;
   }
 };
