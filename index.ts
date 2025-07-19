@@ -85,7 +85,6 @@ const app = new App({
             </html>
           `);
 
-          // Send welcome message after response is sent
           setTimeout(async () => {
             try {
               const { WebClient } = await import("@slack/web-api");
@@ -215,7 +214,6 @@ app.view("mintlify_config_modal", async ({ ack, view, client }) => {
     }
 
     if (response.response_action === "clear") {
-      // Send a confirmation message
       const { private_metadata } = view;
       const { teamId } = JSON.parse(private_metadata);
 
