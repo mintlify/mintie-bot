@@ -1,5 +1,6 @@
-import { EventType, logEvent } from "../../utils/logging";
 import model from "../db";
+import { EventType } from "../../types";
+import { logEvent } from "../../utils/logging";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const saveUserWorkspaceInstall = async (installation: any) => {

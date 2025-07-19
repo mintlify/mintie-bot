@@ -1,18 +1,21 @@
 import { WebClient } from "@slack/web-api";
-import { DocsLink } from "../types";
-import { EventType, logEvent } from "./logging";
-import { getEnvs } from "../env_manager";
+import {
+  DocsLink,
+  EventType,
+  ParseStreamingRequest,
+  ParseStreamingResult,
+} from "../types";
+import { logEvent } from "./logging";
 
 export function extractUserMessage(text: string): string {
   const botMentionPattern = /<@[UW][A-Z0-9]+>/g;
   return text.replace(botMentionPattern, "").trim();
 }
 
-export function parseStreamingResponse(streamData: string): {
-  content: string;
-  sources: DocsLink[];
-} {
-  const lines = streamData.split("\n").filter((line) => line.trim());
+export function parseStreamingResponse(
+  request: ParseStreamingRequest,
+): ParseStreamingResult {
+  const lines = request.streamData.split("\n").filter((line) => line.trim());
   let fullMessage = "";
   let sources: DocsLink[] = [];
 
@@ -88,23 +91,26 @@ export function parseStreamingResponse(streamData: string): {
 
   const finalResponse = cleanResponse
     .replace(/\[([^\]]+)\]\(\/([^)]+)\)/g, (_, text, path) => {
-      const baseUrl =
-        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
-      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const effectiveBaseUrl = request.baseUrl || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = effectiveBaseUrl.endsWith("/")
+        ? effectiveBaseUrl
+        : effectiveBaseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
     .replace(/\(([^)]+)\)\[\/([^\]]+)\]/g, (_, text, path) => {
-      const baseUrl =
-        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
-      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const effectiveBaseUrl = request.baseUrl || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = effectiveBaseUrl.endsWith("/")
+        ? effectiveBaseUrl
+        : effectiveBaseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     })
     .replace(/\(([^)]+)\)\[([^\]]+)\]/g, (_, text, path) => {
-      const baseUrl =
-        getEnvs().MINTLIFY_DOCS_DOMAIN_URL || "https://mintlify.com/docs/";
-      const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+      const effectiveBaseUrl = request.baseUrl || "https://mintlify.com/docs/";
+      const normalizedBaseUrl = effectiveBaseUrl.endsWith("/")
+        ? effectiveBaseUrl
+        : effectiveBaseUrl + "/";
       const fullUrl = normalizedBaseUrl + path.replace(/^\//, "");
       return `[${text}](${fullUrl})`;
     });
@@ -156,7 +162,7 @@ export async function fetchThreadHistory(
     if (threadHistory.messages && threadHistory.messages.length > 1) {
       const contextMessages = threadHistory.messages
         .slice(0, -1)
-        .map((msg: any) => {
+        .map((msg: { bot_id?: string; subtype?: string; text?: string }) => {
           const sender =
             msg.bot_id || msg.subtype === "bot_message" ? "Assistant" : "User";
           const content = msg.text || "";

@@ -9,12 +9,12 @@ export class StatusManager {
   private slackClient: WebClient;
   public channel: string;
   public messageTs: string;
-  private docsDomainURL?: string;
+  private docsDomainURL: string;
   constructor(
     slackClient: WebClient,
     channel: string,
     messageTs: string,
-    docsDomainURL?: string,
+    docsDomainURL: string,
   ) {
     this.slackClient = slackClient;
     this.channel = channel;
@@ -47,7 +47,10 @@ export class StatusManager {
 
   async finalUpdate(content: string): Promise<void> {
     this.stop();
-    const { content: parsedContent, sources } = parseStreamingResponse(content);
+    const { content: parsedContent, sources } = parseStreamingResponse({
+      streamData: content,
+      baseUrl: this.docsDomainURL,
+    });
 
     if (parsedContent.length > 3000) {
       const splitPoint = this.findSafeSplitPoint(parsedContent);

@@ -1,5 +1,6 @@
 import model from "./db";
-import { EventType, logEvent } from "../utils/logging";
+import { EventType } from "../types";
+import { logEvent } from "../utils/logging";
 
 const findUser = async (id: string) => {
   try {
