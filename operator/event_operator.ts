@@ -3,7 +3,6 @@ import { createInitialMessage, generateFingerprint } from "../utils/utils";
 import { StatusManager } from "../utils/status_manager";
 import { MintlifyApiRequest, MintlifyConfig } from "../types";
 import { EventType, logEvent } from "../utils/logging";
-import { getEnvs } from "../env_manager";
 import dbQuery from "../database/get_user";
 
 async function processMessage(
@@ -45,7 +44,7 @@ async function processMessage(
       client,
       channel,
       messageTs,
-      mintlifyConfig.url || getEnvs().MINTLIFY_DOCS_DOMAIN_URL,
+      mintlifyConfig.url,
     );
 
     statusManager.start();

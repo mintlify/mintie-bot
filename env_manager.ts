@@ -9,16 +9,9 @@ function getEnvs(): envVars {
 function validateEnvironment(): envVars {
   const requiredVars: (keyof envVars)[] = [
     "SLACK_SIGNING_SECRET",
-    "MINTLIFY_AUTH_TOKEN",
-    "MINTLIFY_DOCS_DOMAIN",
     "PORT",
     "SLACK_CLIENT_ID",
     "SLACK_CLIENT_SECRET",
-  ];
-
-  const optionalVars: (keyof envVars)[] = [
-    "MINTLIFY_DOCS_DOMAIN_URL",
-    "MINTLIFY_API_URL",
   ];
 
   const missing: string[] = [];
@@ -30,13 +23,6 @@ function validateEnvironment(): envVars {
     if (!value || value.trim() === "") {
       missing.push(varName);
     } else {
-      config[varName] = value;
-    }
-  }
-
-  for (const varName of optionalVars) {
-    const value = process.env[varName];
-    if (value && value.trim() !== "") {
       config[varName] = value;
     }
   }
