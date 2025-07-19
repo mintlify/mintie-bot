@@ -1,6 +1,7 @@
 import { WebClient } from "@slack/web-api";
-import { EventType, logEvent } from "../utils/logging";
 import model from "../database/db";
+import { EventType } from "../types";
+import { logEvent } from "../utils/logging";
 
 export const openMintlifyConfigModal = async (
   client: WebClient,
@@ -53,7 +54,7 @@ export const openMintlifyConfigModal = async (
             },
             hint: {
               type: "plain_text",
-              text: "Your Mintlify domain name (found in the upper-right corner on your Mintlify dashboard)",
+              text: "Your Mintlify domain name (upper-right corner on your Mintlify dashboard)",
             },
           },
           {

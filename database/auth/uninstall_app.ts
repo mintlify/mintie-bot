@@ -1,5 +1,6 @@
-import { EventType, logEvent } from "../../utils/logging";
 import model from "../db";
+import { EventType } from "../../types";
+import { logEvent } from "../../utils/logging";
 
 const uninstallApp = async (teamId: string) => {
   try {

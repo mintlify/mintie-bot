@@ -5,6 +5,24 @@ export interface envVars {
   SLACK_CLIENT_SECRET: string;
 }
 
+export enum EventType {
+  APP_CHANNEL_MENTION = "CHANNEL_MENTION",
+  APP_CHANNEL_MESSAGE = "CHANNEL_MESSAGE",
+  APP_DIRECT_MESSAGE = "DIRECT_MESSAGE",
+  APP_GENERATE_MESSAGE_ERROR = "GENERATE_MESSAGE_ERROR",
+  APP_ERROR = "ERROR",
+  APP_INFO = "INFO",
+  APP_DEBUG = "DEBUG",
+  APP_STARTUP_ERROR = "STARTUP_ERROR",
+}
+
+export interface LogEvent {
+  eventType: EventType;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  event?: any;
+  text?: string;
+}
+
 export interface MintlifyMessage {
   id: string;
   role: "user" | "assistant";
@@ -59,4 +77,14 @@ export interface SectionBlock {
     type: "mrkdwn";
     text: string;
   };
+}
+
+export interface ParseStreamingRequest {
+  streamData: string;
+  baseUrl?: string;
+}
+
+export interface ParseStreamingResult {
+  content: string;
+  sources: DocsLink[];
 }

@@ -1,8 +1,8 @@
 import { WebClient } from "@slack/web-api";
 import { createInitialMessage, generateFingerprint } from "../utils/utils";
 import { StatusManager } from "../utils/status_manager";
-import { MintlifyApiRequest, MintlifyConfig } from "../types";
-import { EventType, logEvent } from "../utils/logging";
+import { EventType, MintlifyApiRequest, MintlifyConfig } from "../types";
+import { logEvent } from "../utils/logging";
 import dbQuery from "../database/get_user";
 
 async function processMessage(

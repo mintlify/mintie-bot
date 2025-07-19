@@ -1,5 +1,5 @@
-import { ChannelMentionEvent } from "./../types";
-import { EventType, logEvent } from "../utils/logging";
+import { ChannelMentionEvent, EventType } from "./../types";
+import { logEvent } from "../utils/logging";
 import { WebClient } from "@slack/web-api";
 import { fetchThreadHistory } from "../utils/utils";
 import { processMessage } from "../operator/event_operator";
