@@ -62,16 +62,16 @@ export interface ChannelMentionEvent {
 
 export type Block = MarkdownBlock | DividerBlock | SectionBlock;
 
-export interface MarkdownBlock {
+interface MarkdownBlock {
   type: "markdown";
   text: string;
 }
 
-export interface DividerBlock {
+interface DividerBlock {
   type: "divider";
 }
 
-export interface SectionBlock {
+interface SectionBlock {
   type: "section";
   text: {
     type: "mrkdwn";

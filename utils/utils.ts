@@ -7,11 +7,6 @@ import {
 } from "../types";
 import { logEvent } from "./logging";
 
-export function extractUserMessage(text: string): string {
-  const botMentionPattern = /<@[UW][A-Z0-9]+>/g;
-  return text.replace(botMentionPattern, "").trim();
-}
-
 export function parseStreamingResponse(
   request: ParseStreamingRequest,
 ): ParseStreamingResult {

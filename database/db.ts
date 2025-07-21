@@ -53,6 +53,22 @@ const usersSchema = new mongoose.Schema(
   { _id: false },
 );
 
-const SlackUser = mongoose.model("SlackUsers", usersSchema, "slackUsers");
+const domainConfigSchema = new mongoose.Schema({
+  domain: { type: String, required: true, unique: true },
+  url: String,
+  authKey: String,
+  isConfigured: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
 
-export default { SlackUser, connect };
+domainConfigSchema.index({ domain: 1 });
+
+const SlackUser = mongoose.model("SlackUsers", usersSchema, "slackUsers");
+const DomainConfig = mongoose.model(
+  "DomainConfigs",
+  domainConfigSchema,
+  "domainConfigs",
+);
+
+export default { SlackUser, DomainConfig, connect };

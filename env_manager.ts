@@ -39,4 +39,4 @@ function validateEnvironment(): envVars {
   };
 }
 
-export { getEnvs, validateEnvironment };
+export { getEnvs };
