@@ -13,11 +13,13 @@ export const openMintlifyConfigModal = async (
     const mintlifyConfig = userDoc?.mintlify;
     const installationState = userDoc?.installationState;
 
-    const isDomainConfigured = mintlifyConfig?.domain || installationState?.domain;
+    const isDomainConfigured =
+      mintlifyConfig?.domain || installationState?.domain;
     const isUrlConfigured = mintlifyConfig?.url || installationState?.url;
     const isAutoConfigured = isDomainConfigured && isUrlConfigured;
 
-    const initialDomainValue = installationState?.domain || mintlifyConfig?.domain || "";
+    const initialDomainValue =
+      installationState?.domain || mintlifyConfig?.domain || "";
     const initialUrlValue = installationState?.url || mintlifyConfig?.url || "";
 
     const modalBlocks = [];
@@ -80,7 +82,9 @@ export const openMintlifyConfigModal = async (
               type: "plain_text",
               text: "Your Mintlify Auth Key",
             },
-            ...(mintlifyConfig?.authKey && { initial_value: mintlifyConfig.authKey }),
+            ...(mintlifyConfig?.authKey && {
+              initial_value: mintlifyConfig.authKey,
+            }),
           },
           label: {
             type: "plain_text",
@@ -90,7 +94,7 @@ export const openMintlifyConfigModal = async (
             type: "plain_text",
             text: "Your assistant API key for accessing Mintlify APIs.",
           },
-        }
+        },
       );
     } else {
       modalBlocks.push(
@@ -156,7 +160,9 @@ export const openMintlifyConfigModal = async (
               type: "plain_text",
               text: "Your Mintlify Auth Key",
             },
-            ...(mintlifyConfig?.authKey && { initial_value: mintlifyConfig.authKey }),
+            ...(mintlifyConfig?.authKey && {
+              initial_value: mintlifyConfig.authKey,
+            }),
           },
           label: {
             type: "plain_text",
@@ -166,7 +172,7 @@ export const openMintlifyConfigModal = async (
             type: "plain_text",
             text: "Your assistant API key for accessing Mintlify APIs.",
           },
-        }
+        },
       );
     }
 
@@ -193,10 +199,8 @@ export const openMintlifyConfigModal = async (
     });
 
     logEvent({
-      text: `Opened Mintlify config modal for team ${teamId}${
-        installationState
-          ? " with pre-populated data from installation state"
-          : ""
+      text: `Opened config modal for team ${teamId}${
+        installationState ? " with pre-populated data" : ""
       }`,
       eventType: EventType.APP_INFO,
     });
@@ -220,7 +224,8 @@ export const handleMintlifyConfigSubmission = async (payload: any) => {
     const userDoc = await model.SlackUser.findOne({ _id: teamId });
     const mintlifyConfig = userDoc?.mintlify;
 
-    const domain = state.values.domain_block?.domain_input?.value || mintlifyConfig?.domain;
+    const domain =
+      state.values.domain_block?.domain_input?.value || mintlifyConfig?.domain;
     const url = state.values.url_block?.url_input?.value || mintlifyConfig?.url;
     const authKey = state.values.auth_key_block.auth_key_input.value;
 

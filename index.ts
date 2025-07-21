@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { App, LogLevel } from "@slack/bolt";
+import { App, LogLevel, InstallURLOptions } from "@slack/bolt";
 import { WebClient } from "@slack/web-api";
 import { getEnvs } from "./env_manager";
 import { createAssistant } from "./handler/assistant_handler";
@@ -11,13 +11,9 @@ import workspaceAuth from "./database/auth/workspace_install";
 import dbQuery from "./database/get_user";
 import db from "./database/db";
 import model from "./database/db";
-import {
-  Installation,
-  InstallationQuery,
-  InstallURLOptions,
-  CodedError,
-} from "@slack/bolt";
+import { Installation, InstallationQuery, CodedError } from "@slack/bolt";
 import { IncomingMessage, ServerResponse } from "http";
+import { ParamsIncomingMessage } from "@slack/bolt/dist/receivers/ParamsIncomingMessage";
 import { randomUUID } from "crypto";
 import {
   openMintlifyConfigModal,
@@ -69,18 +65,20 @@ const app = new App({
     {
       path: "/slack/install/:encodedParams",
       method: ["GET"],
-      handler: async (req: any, res: any) => {
+      handler: async (req: ParamsIncomingMessage, res: ServerResponse) => {
         try {
-          const encodedParams = req.params.encodedParams;
+          const encodedParams = req.params?.encodedParams;
 
           logEvent({
             text: `Custom install route called with encoded params: ${encodedParams}`,
             eventType: EventType.APP_INFO,
           });
 
-          const decodedParams = Buffer.from(encodedParams, "base64").toString(
-            "utf8",
-          );
+          const decodedParams = Buffer.from(
+            encodedParams || "",
+            "base64",
+          ).toString("utf8");
+
           const { domain, url } = JSON.parse(decodedParams);
 
           logEvent({
@@ -112,22 +110,13 @@ const app = new App({
               eventType: EventType.APP_INFO,
             });
 
-            res.writeHead(200, { "Content-Type": "text/html" });
-            res.end(`
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <title>Setting up Mintie...</title>
-                <meta http-equiv="refresh" content="0;url=/slack/install">
-              </head>
-              <body>
-                <p>Setting up your Mintlify configuration... Redirecting to Slack authorization.</p>
-                <script>
-                  window.location.href = '/slack/install';
-                </script>
-              </body>
-              </html>
-            `);
+            res.setHeader(
+              "Set-Cookie",
+              `mintie_config_id=${configId}; HttpOnly; Secure; SameSite=Lax; Max-Age=600; Path=/`,
+            );
+
+            res.writeHead(302, { Location: "/slack/install" });
+            res.end();
           } else {
             logEvent({
               text: `Missing domain or url parameter: domain=${domain}, url=${url}`,
@@ -149,6 +138,7 @@ const app = new App({
   ],
   installerOptions: {
     stateVerification: true,
+    directInstall: true,
     callbackOptions: {
       success: async (
         installation: Installation<"v1" | "v2", boolean>,
@@ -162,10 +152,21 @@ const app = new App({
         let foundDomainConfig = null;
         let configId = null;
 
-        for (const [id, config] of domainConfigStore.entries()) {
-          foundDomainConfig = config;
-          configId = id;
-          break;
+        const cookies = _req.headers.cookie;
+        if (cookies) {
+          const cookieMatch = cookies.match(/mintie_config_id=([^;]+)/);
+          if (cookieMatch) {
+            configId = cookieMatch[1];
+            foundDomainConfig = domainConfigStore.get(configId);
+          }
+        }
+
+        if (!foundDomainConfig) {
+          for (const [id, config] of domainConfigStore.entries()) {
+            foundDomainConfig = config;
+            configId = id;
+            break;
+          }
         }
 
         if (foundDomainConfig && teamId && configId) {
@@ -187,7 +188,7 @@ const app = new App({
                 "installationState.savedAt": new Date(),
               },
             },
-            { upsert: true }
+            { upsert: true },
           );
 
           await model.SlackUser.deleteOne({ _id: configId });
