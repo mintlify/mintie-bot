@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { App, LogLevel } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import { getEnvs } from "./env_manager";
 import { createAssistant } from "./handler/assistant_handler";
 import { EventType } from "./types";
@@ -22,22 +23,12 @@ import {
   handleMintlifyConfigSubmission,
 } from "./handler/mintlify_modal";
 import { handleAppMention } from "./listeners/listeners";
+import {
+  fullConfigureMintlifyMessage,
+  preConfiguredMintlifyMessage,
+} from "./start_messages";
 
 const envConfig = getEnvs();
-
-const installParamsStore = new Map<
-  string,
-  { domain?: string; url?: string; timestamp: number }
->();
-
-setInterval(() => {
-  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-  for (const [key, value] of installParamsStore.entries()) {
-    if (value.timestamp < tenMinutesAgo) {
-      installParamsStore.delete(key);
-    }
-  }
-}, 60000);
 
 const app = new App({
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
@@ -66,24 +57,65 @@ const app = new App({
       handler: async (req: any, res: any) => {
         try {
           const encodedParams = req.params.encodedParams;
+
+          logEvent({
+            text: `Custom install route called with encoded params: ${encodedParams}`,
+            eventType: EventType.APP_INFO,
+          });
+
           const decodedParams = Buffer.from(encodedParams, "base64").toString(
             "utf8",
           );
           const { domain, url } = JSON.parse(decodedParams);
 
+          logEvent({
+            text: `Decoded install params: domain=${domain}, url=${url}`,
+            eventType: EventType.APP_INFO,
+          });
+
           if (domain && url) {
-            await workspaceAuth.saveInstallationState("pending", {
-              domain,
-              url,
+            const saveResult = await workspaceAuth.saveInstallationState(
+              "pending",
+              {
+                domain,
+                url,
+              },
+            );
+
+            logEvent({
+              text: `Save result: ${JSON.stringify(saveResult)}`,
+              eventType: EventType.APP_INFO,
             });
 
-            res.writeHead(302, { Location: "/slack/install" });
-            res.end();
+            res.writeHead(200, { "Content-Type": "text/html" });
+            res.end(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Setting up Mintie...</title>
+                <meta http-equiv="refresh" content="0;url=/slack/install">
+              </head>
+              <body>
+                <p>Setting up your Mintlify configuration... Redirecting to Slack authorization.</p>
+                <script>
+                  window.location.href = '/slack/install';
+                </script>
+              </body>
+              </html>
+            `);
           } else {
+            logEvent({
+              text: `Missing domain or url parameter: domain=${domain}, url=${url}`,
+              eventType: EventType.APP_ERROR,
+            });
             res.writeHead(400);
             res.end("Missing domain or url parameter");
           }
-        } catch {
+        } catch (error) {
+          logEvent({
+            text: `Error in custom install route: ${error}`,
+            eventType: EventType.APP_ERROR,
+          });
           res.writeHead(400);
           res.end("Invalid encoded parameters");
         }
@@ -95,40 +127,31 @@ const app = new App({
     callbackOptions: {
       success: async (
         installation: Installation<"v1" | "v2", boolean>,
-        installOptions: InstallURLOptions,
-        req: IncomingMessage,
+        _installOptions: InstallURLOptions,
+        _req: IncomingMessage,
         res: ServerResponse,
       ) => {
         let stateData: { domain?: string; url?: string } = {};
 
-        try {
-          const pendingData = await workspaceAuth.getInstallationState(
-            "pending",
-          );
-          if (pendingData) {
-            stateData = {
-              domain: pendingData.domain || "",
-              url: pendingData.url || "",
-            };
+        const pendingData = await workspaceAuth.getInstallationState("pending");
+        if (pendingData) {
+          stateData = {
+            domain: pendingData.domain || "",
+            url: pendingData.url || "",
+          };
 
-            await workspaceAuth.clearInstallationState("pending");
+          await workspaceAuth.clearInstallationState("pending");
 
-            logEvent({
-              text: `Retrieved install parameters from database: ${JSON.stringify(
-                stateData,
-              )}`,
-              eventType: EventType.APP_INFO,
-            });
-          } else {
-            logEvent({
-              text: `No pending install parameters found in database`,
-              eventType: EventType.APP_INFO,
-            });
+          const teamId = installation.team?.id;
+          if (teamId) {
+            await workspaceAuth.saveInstallationState(teamId, stateData);
           }
-        } catch (error) {
+
           logEvent({
-            text: `Error retrieving install parameters: ${error}`,
-            eventType: EventType.APP_ERROR,
+            text: `Retrieved install parameters from database: ${JSON.stringify(
+              stateData,
+            )}`,
+            eventType: EventType.APP_INFO,
           });
         }
         try {
@@ -161,7 +184,6 @@ const app = new App({
 
           setTimeout(async () => {
             try {
-              const { WebClient } = await import("@slack/web-api");
               const client = new WebClient(installation.bot?.token);
 
               const teamId = installation.team?.id;
@@ -172,17 +194,16 @@ const app = new App({
                     $set: {
                       "mintlify.domain": stateData.domain,
                       "mintlify.url": stateData.url,
-                      "mintlify.isConfigured": true,
+                      "mintlify.isConfigured": false,
                     },
                   },
                 );
 
                 logEvent({
-                  text: `Auto-configured Mintlify for team ${teamId}: domain=${stateData.domain}, url=${stateData.url}`,
+                  text: `Pre-configured Mintlify for team ${teamId}: domain=${stateData.domain}, url=${stateData.url}`,
                   eventType: EventType.APP_INFO,
                 });
               } else if (teamId && (stateData.domain || stateData.url)) {
-                await workspaceAuth.saveInstallationState(teamId, stateData);
                 logEvent({
                   text: `Saved partial installation state for team ${teamId}: ${JSON.stringify(
                     stateData,
@@ -192,47 +213,22 @@ const app = new App({
               }
 
               if (stateData.domain && stateData.url) {
-                await client.chat.postMessage({
-                  channel: installation.user?.id,
-                  text: "🎉 Welcome to Mintie! Your Mintlify settings have been automatically configured.",
-                  blocks: [
-                    {
-                      type: "section",
-                      text: {
-                        type: "mrkdwn",
-                        text: `🎉 *Welcome to Mintie!*\n\nGreat news! I've automatically configured your Mintlify settings:\n\n• *Domain:* ${stateData.domain}\n• *URL:* ${stateData.url}\n\nYou're all set to start using Mintie for your documentation needs! Just add and mention me in any channel or send me a DM to get help with your docs.`,
-                      },
-                    },
-                  ],
+                logEvent({
+                  text: `Sending welcome message with pre-configured settings to user ${installation.user?.id}`,
+                  eventType: EventType.APP_INFO,
                 });
+
+                await client.chat.postMessage(
+                  preConfiguredMintlifyMessage(
+                    installation.user?.id,
+                    stateData.domain,
+                    stateData.url,
+                  ),
+                );
               } else {
-                await client.chat.postMessage({
-                  channel: installation.user?.id,
-                  text: "🎉 Welcome to Mintie! To get started, please configure your Mintlify settings.",
-                  blocks: [
-                    {
-                      type: "section",
-                      text: {
-                        type: "mrkdwn",
-                        text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify setup. Please click the button below to configure your settings.",
-                      },
-                    },
-                    {
-                      type: "actions",
-                      elements: [
-                        {
-                          type: "button",
-                          text: {
-                            type: "plain_text",
-                            text: "Configure Mintlify",
-                          },
-                          action_id: "configure_mintlify",
-                          style: "primary",
-                        },
-                      ],
-                    },
-                  ],
-                });
+                await client.chat.postMessage(
+                  fullConfigureMintlifyMessage(installation.user?.id),
+                );
               }
             } catch (error) {
               logEvent({
@@ -246,10 +242,6 @@ const app = new App({
             text: `Error in installation success callback: ${error}`,
             eventType: EventType.APP_ERROR,
           });
-          res?.writeHead(500);
-          res?.end(
-            "Installation completed but there was an error setting up the configuration.",
-          );
         }
       },
       failure: (
@@ -291,26 +283,13 @@ const app = new App({
 
 app.action("configure_mintlify", async ({ ack, body, client, context }) => {
   await ack();
-
-  try {
-    const teamId = context.teamId;
-    if (!teamId) {
-      throw new Error("Team ID not found in context");
-    }
-
-    const triggerId = "trigger_id" in body ? body.trigger_id : "";
-    await openMintlifyConfigModal(client, triggerId, teamId);
-
-    logEvent({
-      text: `User clicked configure Mintlify button for team ${teamId}`,
-      eventType: EventType.APP_INFO,
-    });
-  } catch (error) {
-    logEvent({
-      text: `Error handling configure Mintlify action: ${error}`,
-      eventType: EventType.APP_ERROR,
-    });
+  const teamId = context.teamId;
+  if (!teamId) {
+    throw new Error("Team ID not found in context");
   }
+
+  const triggerId = "trigger_id" in body ? body.trigger_id : "";
+  await openMintlifyConfigModal(client, triggerId, teamId);
 });
 
 app.view("mintlify_config_modal", async ({ ack, view, client }) => {
@@ -340,7 +319,7 @@ app.view("mintlify_config_modal", async ({ ack, view, client }) => {
     }
   } catch (error) {
     logEvent({
-      text: `Error handling Mintlify config modal submission: ${error}`,
+      text: `Error updating Mintlify config: ${error}`,
       eventType: EventType.APP_ERROR,
     });
     await ack({

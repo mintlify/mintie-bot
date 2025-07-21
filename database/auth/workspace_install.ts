@@ -60,7 +60,8 @@ const saveInstallationState = async (teamId: string, stateData: any) => {
             savedAt: new Date()
           }
         }
-      }
+      },
+      { upsert: true }
     );
     
     logEvent({
