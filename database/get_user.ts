@@ -10,7 +10,7 @@ const findUser = async (id: string) => {
       eventType: EventType.APP_INFO,
     });
     logEvent({
-      text: `Found user data: ${user}`,
+      text: `Found user data.`,
       eventType: EventType.APP_INFO,
     });
     if (user[0] !== undefined) {

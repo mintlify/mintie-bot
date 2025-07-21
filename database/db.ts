@@ -62,8 +62,6 @@ const domainConfigSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-domainConfigSchema.index({ domain: 1 });
-
 const SlackUser = mongoose.model("SlackUsers", usersSchema, "slackUsers");
 const DomainConfig = mongoose.model(
   "DomainConfigs",
