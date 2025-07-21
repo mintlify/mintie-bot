@@ -30,6 +30,20 @@ import {
 
 const envConfig = getEnvs();
 
+const domainConfigStore = new Map<
+  string,
+  { domain: string; url: string; timestamp: number }
+>();
+
+setInterval(() => {
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  for (const [key, value] of domainConfigStore.entries()) {
+    if (value.timestamp < tenMinutesAgo) {
+      domainConfigStore.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
+
 const app = new App({
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
   clientId: envConfig.SLACK_CLIENT_ID,
@@ -74,16 +88,14 @@ const app = new App({
           });
 
           if (domain && url) {
-            const saveResult = await workspaceAuth.saveInstallationState(
-              "pending",
-              {
-                domain,
-                url,
-              },
-            );
+            domainConfigStore.set(domain, {
+              domain,
+              url,
+              timestamp: Date.now(),
+            });
 
             logEvent({
-              text: `Save result: ${JSON.stringify(saveResult)}`,
+              text: `Stored in-memory config for domain: ${domain}, url: ${url}`,
               eventType: EventType.APP_INFO,
             });
 
@@ -127,30 +139,55 @@ const app = new App({
     callbackOptions: {
       success: async (
         installation: Installation<"v1" | "v2", boolean>,
-        _installOptions: InstallURLOptions,
+        installOptions: InstallURLOptions,
         _req: IncomingMessage,
         res: ServerResponse,
       ) => {
         let stateData: { domain?: string; url?: string } = {};
 
-        const pendingData = await workspaceAuth.getInstallationState("pending");
-        if (pendingData) {
+        // Look for stored domain configurations in memory
+        let foundDomainConfig = null;
+        for (const [domain, config] of domainConfigStore.entries()) {
+          // Find the most recent config (within last 10 minutes)
+          if (Date.now() - config.timestamp < 10 * 60 * 1000) {
+            foundDomainConfig = config;
+            domainConfigStore.delete(domain); // Remove after use to prevent reuse
+            break;
+          }
+        }
+
+        if (foundDomainConfig) {
           stateData = {
-            domain: pendingData.domain || "",
-            url: pendingData.url || "",
+            domain: foundDomainConfig.domain,
+            url: foundDomainConfig.url,
           };
 
-          await workspaceAuth.clearInstallationState("pending");
-
+          // Update the team record directly with the domain/url data
           const teamId = installation.team?.id;
           if (teamId) {
-            await workspaceAuth.saveInstallationState(teamId, stateData);
+            await model.SlackUser.updateOne(
+              { _id: teamId },
+              {
+                $set: {
+                  "mintlify.domain": foundDomainConfig.domain,
+                  "mintlify.url": foundDomainConfig.url,
+                  "mintlify.isConfigured": false, // Still need API key
+                  // Store in installationState for modal pre-population
+                  "installationState.domain": foundDomainConfig.domain,
+                  "installationState.url": foundDomainConfig.url,
+                  "installationState.savedAt": new Date(),
+                }
+              }
+            );
+            
+            logEvent({
+              text: `Updated team ${teamId} with domain config: ${JSON.stringify(stateData)}`,
+              eventType: EventType.APP_INFO,
+            });
           }
-
+        } else {
           logEvent({
-            text: `Retrieved install parameters from database: ${JSON.stringify(
-              stateData,
-            )}`,
+            text: `No domain configuration found in memory for team ${installation.team?.id}`,
             eventType: EventType.APP_INFO,
           });
         }
