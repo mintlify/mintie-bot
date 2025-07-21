@@ -18,6 +18,7 @@ import {
   CodedError,
 } from "@slack/bolt";
 import { IncomingMessage, ServerResponse } from "http";
+import { randomUUID } from "crypto";
 import {
   openMintlifyConfigModal,
   handleMintlifyConfigSubmission,
@@ -32,7 +33,7 @@ const envConfig = getEnvs();
 
 const domainConfigStore = new Map<
   string,
-  { domain: string; url: string; timestamp: number }
+  { id: string; domain: string; url: string; timestamp: number }
 >();
 
 setInterval(() => {
@@ -88,7 +89,19 @@ const app = new App({
           });
 
           if (domain && url) {
-            domainConfigStore.set(domain, {
+            const configId = randomUUID();
+
+            await model.SlackUser.create({
+              _id: configId,
+              "installationState.configId": configId,
+              "installationState.domain": domain,
+              "installationState.url": url,
+              "installationState.savedAt": new Date(),
+              "installationState.isPartial": true,
+            });
+
+            domainConfigStore.set(configId, {
+              id: configId,
               domain,
               url,
               timestamp: Date.now(),
@@ -145,46 +158,48 @@ const app = new App({
       ) => {
         let stateData: { domain?: string; url?: string } = {};
 
-        // Look for stored domain configurations in memory
+        const teamId = installation.team?.id;
         let foundDomainConfig = null;
-        for (const [domain, config] of domainConfigStore.entries()) {
-          // Find the most recent config (within last 10 minutes)
-          if (Date.now() - config.timestamp < 10 * 60 * 1000) {
-            foundDomainConfig = config;
-            domainConfigStore.delete(domain); // Remove after use to prevent reuse
-            break;
-          }
+        let configId = null;
+
+        for (const [id, config] of domainConfigStore.entries()) {
+          foundDomainConfig = config;
+          configId = id;
+          break;
         }
 
-        if (foundDomainConfig) {
+        if (foundDomainConfig && teamId && configId) {
           stateData = {
             domain: foundDomainConfig.domain,
             url: foundDomainConfig.url,
           };
 
-          // Update the team record directly with the domain/url data
-          const teamId = installation.team?.id;
-          if (teamId) {
-            await model.SlackUser.updateOne(
-              { _id: teamId },
-              {
-                $set: {
-                  "mintlify.domain": foundDomainConfig.domain,
-                  "mintlify.url": foundDomainConfig.url,
-                  "mintlify.isConfigured": false, // Still need API key
-                  // Store in installationState for modal pre-population
-                  "installationState.domain": foundDomainConfig.domain,
-                  "installationState.url": foundDomainConfig.url,
-                  "installationState.savedAt": new Date(),
-                }
-              }
-            );
-            
-            logEvent({
-              text: `Updated team ${teamId} with domain config: ${JSON.stringify(stateData)}`,
-              eventType: EventType.APP_INFO,
-            });
-          }
+          await model.SlackUser.updateOne(
+            { _id: teamId },
+            {
+              $set: {
+                "mintlify.domain": foundDomainConfig.domain,
+                "mintlify.url": foundDomainConfig.url,
+                "mintlify.isConfigured": false,
+                "installationState.domain": foundDomainConfig.domain,
+                "installationState.url": foundDomainConfig.url,
+                "installationState.configId": configId,
+                "installationState.savedAt": new Date(),
+              },
+            },
+            { upsert: true }
+          );
+
+          await model.SlackUser.deleteOne({ _id: configId });
+
+          domainConfigStore.delete(configId);
+
+          logEvent({
+            text: `Updated team ${teamId} with domain config: ${JSON.stringify(
+              stateData,
+            )}`,
+            eventType: EventType.APP_INFO,
+          });
         } else {
           logEvent({
             text: `No domain configuration found in memory for team ${installation.team?.id}`,
