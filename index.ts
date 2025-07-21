@@ -9,6 +9,7 @@ import { logEvent } from "./utils/logging";
 import workspaceAuth from "./database/auth/workspace_install";
 import dbQuery from "./database/get_user";
 import db from "./database/db";
+import model from "./database/db";
 import {
   Installation,
   InstallationQuery,
@@ -23,6 +24,20 @@ import {
 import { handleAppMention } from "./listeners/listeners";
 
 const envConfig = getEnvs();
+
+const installParamsStore = new Map<
+  string,
+  { domain?: string; url?: string; timestamp: number }
+>();
+
+setInterval(() => {
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  for (const [key, value] of installParamsStore.entries()) {
+    if (value.timestamp < tenMinutesAgo) {
+      installParamsStore.delete(key);
+    }
+  }
+}, 60000);
 
 const app = new App({
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
@@ -44,8 +59,39 @@ const app = new App({
     "mpim:history",
     "channels:read",
   ],
+  customRoutes: [
+    {
+      path: "/slack/install/:encodedParams",
+      method: ["GET"],
+      handler: async (req: any, res: any) => {
+        try {
+          const encodedParams = req.params.encodedParams;
+          const decodedParams = Buffer.from(encodedParams, "base64").toString(
+            "utf8",
+          );
+          const { domain, url } = JSON.parse(decodedParams);
+
+          if (domain && url) {
+            await workspaceAuth.saveInstallationState("pending", {
+              domain,
+              url,
+            });
+
+            res.writeHead(302, { Location: "/slack/install" });
+            res.end();
+          } else {
+            res.writeHead(400);
+            res.end("Missing domain or url parameter");
+          }
+        } catch {
+          res.writeHead(400);
+          res.end("Invalid encoded parameters");
+        }
+      },
+    },
+  ],
   installerOptions: {
-    stateVerification: false,
+    stateVerification: true,
     callbackOptions: {
       success: async (
         installation: Installation<"v1" | "v2", boolean>,
@@ -53,6 +99,38 @@ const app = new App({
         req: IncomingMessage,
         res: ServerResponse,
       ) => {
+        let stateData: { domain?: string; url?: string } = {};
+
+        try {
+          const pendingData = await workspaceAuth.getInstallationState(
+            "pending",
+          );
+          if (pendingData) {
+            stateData = {
+              domain: pendingData.domain || "",
+              url: pendingData.url || "",
+            };
+
+            await workspaceAuth.clearInstallationState("pending");
+
+            logEvent({
+              text: `Retrieved install parameters from database: ${JSON.stringify(
+                stateData,
+              )}`,
+              eventType: EventType.APP_INFO,
+            });
+          } else {
+            logEvent({
+              text: `No pending install parameters found in database`,
+              eventType: EventType.APP_INFO,
+            });
+          }
+        } catch (error) {
+          logEvent({
+            text: `Error retrieving install parameters: ${error}`,
+            eventType: EventType.APP_ERROR,
+          });
+        }
         try {
           logEvent({
             text: `Installation successful for team ${installation.team?.id}`,
@@ -86,33 +164,76 @@ const app = new App({
               const { WebClient } = await import("@slack/web-api");
               const client = new WebClient(installation.bot?.token);
 
-              await client.chat.postMessage({
-                channel: installation.user?.id,
-                text: "🎉 Welcome to Mintie! To get started, please configure your Mintlify settings.",
-                blocks: [
+              const teamId = installation.team?.id;
+              if (teamId && stateData.domain && stateData.url) {
+                await model.SlackUser.updateOne(
+                  { _id: teamId },
                   {
-                    type: "section",
-                    text: {
-                      type: "mrkdwn",
-                      text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify setup. Please click the button below to configure your settings.",
+                    $set: {
+                      "mintlify.domain": stateData.domain,
+                      "mintlify.url": stateData.url,
+                      "mintlify.isConfigured": true,
                     },
                   },
-                  {
-                    type: "actions",
-                    elements: [
-                      {
-                        type: "button",
-                        text: {
-                          type: "plain_text",
-                          text: "Configure Mintlify",
-                        },
-                        action_id: "configure_mintlify",
-                        style: "primary",
+                );
+
+                logEvent({
+                  text: `Auto-configured Mintlify for team ${teamId}: domain=${stateData.domain}, url=${stateData.url}`,
+                  eventType: EventType.APP_INFO,
+                });
+              } else if (teamId && (stateData.domain || stateData.url)) {
+                await workspaceAuth.saveInstallationState(teamId, stateData);
+                logEvent({
+                  text: `Saved partial installation state for team ${teamId}: ${JSON.stringify(
+                    stateData,
+                  )}`,
+                  eventType: EventType.APP_INFO,
+                });
+              }
+
+              if (stateData.domain && stateData.url) {
+                await client.chat.postMessage({
+                  channel: installation.user?.id,
+                  text: "🎉 Welcome to Mintie! Your Mintlify settings have been automatically configured.",
+                  blocks: [
+                    {
+                      type: "section",
+                      text: {
+                        type: "mrkdwn",
+                        text: `🎉 *Welcome to Mintie!*\n\nGreat news! I've automatically configured your Mintlify settings:\n\n• *Domain:* ${stateData.domain}\n• *URL:* ${stateData.url}\n\nYou're all set to start using Mintie for your documentation needs! Just add and mention me in any channel or send me a DM to get help with your docs.`,
                       },
-                    ],
-                  },
-                ],
-              });
+                    },
+                  ],
+                });
+              } else {
+                await client.chat.postMessage({
+                  channel: installation.user?.id,
+                  text: "🎉 Welcome to Mintie! To get started, please configure your Mintlify settings.",
+                  blocks: [
+                    {
+                      type: "section",
+                      text: {
+                        type: "mrkdwn",
+                        text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify setup. Please click the button below to configure your settings.",
+                      },
+                    },
+                    {
+                      type: "actions",
+                      elements: [
+                        {
+                          type: "button",
+                          text: {
+                            type: "plain_text",
+                            text: "Configure Mintlify",
+                          },
+                          action_id: "configure_mintlify",
+                          style: "primary",
+                        },
+                      ],
+                    },
+                  ],
+                });
+              }
             } catch (error) {
               logEvent({
                 text: `Error sending welcome message: ${error}`,

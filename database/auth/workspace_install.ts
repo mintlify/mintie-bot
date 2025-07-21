@@ -43,4 +43,84 @@ const saveUserWorkspaceInstall = async (installation: any) => {
   }
 };
 
-export default { saveUserWorkspaceInstall };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const saveInstallationState = async (teamId: string, stateData: any) => {
+  try {
+    logEvent({
+      text: `Saving installation state data for team ID: ${teamId}`,
+      eventType: EventType.APP_INFO,
+    });
+    
+    const resp = await model.SlackUser.updateOne(
+      { _id: teamId },
+      {
+        $set: {
+          installationState: {
+            ...stateData,
+            savedAt: new Date()
+          }
+        }
+      }
+    );
+    
+    logEvent({
+      text: `Installation state save result: ${resp}`,
+      eventType: EventType.APP_INFO,
+    });
+    return resp;
+  } catch (error) {
+    logEvent({
+      text: `Error saving installation state: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+    return error;
+  }
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getInstallationState = async (teamId: string) => {
+  try {
+    logEvent({
+      text: `Getting installation state data for team ID: ${teamId}`,
+      eventType: EventType.APP_INFO,
+    });
+    
+    const user = await model.SlackUser.findOne({ _id: teamId });
+    return user?.installationState || null;
+  } catch (error) {
+    logEvent({
+      text: `Error getting installation state: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+    return null;
+  }
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const clearInstallationState = async (teamId: string) => {
+  try {
+    logEvent({
+      text: `Clearing installation state data for team ID: ${teamId}`,
+      eventType: EventType.APP_INFO,
+    });
+    
+    const resp = await model.SlackUser.updateOne(
+      { _id: teamId },
+      {
+        $unset: {
+          installationState: ""
+        }
+      }
+    );
+    
+    return resp;
+  } catch (error) {
+    logEvent({
+      text: `Error clearing installation state: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+    return error;
+  }
+};
+
+export default { saveUserWorkspaceInstall, saveInstallationState, getInstallationState, clearInstallationState };
