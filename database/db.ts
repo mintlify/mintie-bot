@@ -44,6 +44,11 @@ const usersSchema = new mongoose.Schema(
       authKey: String,
       isConfigured: { type: Boolean, default: false },
     },
+    installationState: {
+      domain: String,
+      url: String,
+      savedAt: Date,
+    },
   },
   { _id: false },
 );
