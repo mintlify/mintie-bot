@@ -62,11 +62,10 @@ export const handleAppMention = (app: App) => {
         eventType: EventType.APP_INFO,
       });
 
-      const teamId = context.teamId;
-      if (teamId) {
-        await uninstallApp.uninstallApp(teamId);
+      if (context.teamId) {
+        await uninstallApp.uninstallApp(context.teamId);
         logEvent({
-          text: `Removed installation for uninstalled team: ${teamId}`,
+          text: `Removed installation for uninstalled team: ${context.teamId}`,
           eventType: EventType.APP_INFO,
         });
       } else {

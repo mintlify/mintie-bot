@@ -6,11 +6,6 @@ const uninstallApp = async (teamId: string) => {
   try {
     const installationId = teamId;
 
-    logEvent({
-      text: `Attempting to remove installation for ID: ${installationId}`,
-      eventType: EventType.APP_INFO,
-    });
-
     const result = await model.SlackUser.deleteOne({ _id: installationId });
 
     if (result.deletedCount > 0) {

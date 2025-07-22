@@ -1,8 +1,9 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
+dotenv.config();
+
+import mongoose from "mongoose";
 import { EventType } from "../types";
 import { logEvent } from "../utils/logging";
-dotenv.config();
 
 const uri = process.env.MONGODB_URI || "";
 
