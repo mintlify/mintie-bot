@@ -24,7 +24,7 @@ async function processMessage(
     if (!mintlifyConfig?.isConfigured) {
       await client.chat.postMessage({
         channel,
-        text: "Hi! I'm Mintie, your Mintlify documentation assistant. To get started, please complete your Mintlify setup by clicking the 'Configure Mintlify' button that was sent when you installed the app.",
+        text: "Hi! I'm Mintie, your AI documentation assistant. To get started, please complete your setup by clicking the `Add API Key` button that was sent when you installed the app.",
         thread_ts: threadTs || originalMessageTs,
       });
       return;

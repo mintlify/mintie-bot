@@ -4,6 +4,7 @@ import {
   EventType,
   ParseStreamingRequest,
   ParseStreamingResult,
+  ChannelMentionEvent,
 } from "../types";
 import { logEvent } from "./logging";
 
@@ -140,6 +141,21 @@ export function generateFingerprint(
   const base = `${channel}-${threadTs || "main"}`;
   const timestamp = Date.now();
   return `${base}-${timestamp}`;
+}
+
+export async function getChannelName(
+  client: WebClient,
+  event: ChannelMentionEvent,
+) {
+  if (event.subtype || event.bot_id) {
+    return null;
+  }
+
+  const channelInfo = await client.conversations.info({
+    channel: event.channel,
+  });
+
+  return channelInfo.channel?.name;
 }
 
 export async function fetchThreadHistory(

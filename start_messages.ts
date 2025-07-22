@@ -32,7 +32,7 @@ export const preConfiguredMintlifyMessage = (
   };
 };
 
-  export const fullConfigureMintlifyMessage = (channel: string) => {
+export const fullConfigureMintlifyMessage = (channel: string) => {
   return {
     channel: channel,
     text: "🎉 Welcome to Mintie! To get started, please configure your Mintlify settings.",
@@ -41,7 +41,7 @@ export const preConfiguredMintlifyMessage = (
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify setup. Please click the button below to configure your settings.",
+          text: "🎉 *Welcome to Mintie!*\n\nTo help you with your documentation, I need to know about your Mintlify documentation setup. Please click the button below to configure your settings.",
         },
       },
       {

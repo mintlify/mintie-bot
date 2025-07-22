@@ -32,14 +32,17 @@ const domainConfigStore = new Map<
   { id: string; domain: string; url: string; timestamp: number }
 >();
 
-setInterval(() => {
-  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-  for (const [key, value] of domainConfigStore.entries()) {
-    if (value.timestamp < tenMinutesAgo) {
-      domainConfigStore.delete(key);
+setInterval(
+  () => {
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    for (const [key, value] of domainConfigStore.entries()) {
+      if (value.timestamp < tenMinutesAgo) {
+        domainConfigStore.delete(key);
+      }
     }
-  }
-}, 10 * 60 * 1000);
+  },
+  10 * 60 * 1000,
+);
 
 const app = new App({
   signingSecret: envConfig.SLACK_SIGNING_SECRET,

@@ -9,6 +9,7 @@ const saveUserWorkspaceInstall = async (installation: any) => {
       text: `Attempting to save workspace installation for team ID: ${installation.team.id}`,
       eventType: EventType.APP_INFO,
     });
+
     const resp = await model.SlackUser.updateOne(
       { _id: installation.team.id },
       {

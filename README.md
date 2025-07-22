@@ -10,3 +10,7 @@
 - use the `/slack/events` with `tmole` port forwarding to localhost:3000
 
 - `npx eslint .` to run eslint
+
+Todo:
+
+- Allow custom suggested prompts to the assistant

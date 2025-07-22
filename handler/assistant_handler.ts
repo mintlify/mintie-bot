@@ -6,26 +6,10 @@ import { processMessage } from "../operator/event_operator";
 
 async function createAssistant() {
   return new Assistant({
-    threadStarted: async ({ say, setSuggestedPrompts }) => {
+    threadStarted: async ({ say }) => {
       await say(
-        "Hi! I'm Mintie, your Mintlify documentation assistant. How can I help you today?",
+        "Hi! I'm Mintie, your AI documentation assistant. How can I help you today?",
       );
-      await setSuggestedPrompts({
-        prompts: [
-          {
-            title: "Getting Started",
-            message: "What is the getting started process?",
-          },
-          {
-            title: "Search Documentation",
-            message: "How do I search for specific documentation?",
-          },
-          {
-            title: "API Integration",
-            message: "How do I integrate with the Mintlify API?",
-          },
-        ],
-      });
     },
     userMessage: async ({ message, say, setStatus, client }) => {
       logEvent({

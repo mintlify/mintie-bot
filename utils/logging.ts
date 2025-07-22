@@ -1,6 +1,5 @@
 import { LogEvent } from "../types";
 
-
 export const logEvent = (log: LogEvent) => {
   console.log(
     `[${log.eventType}] Received event:`,

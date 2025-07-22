@@ -30,47 +30,11 @@ export const openMintlifyConfigModal = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `🎉 *Great! Your Mintlify settings are configured:*\n\n• *Domain:* ${isDomainConfigured}\n• *URL:* ${isUrlConfigured}\n\nNow just add your API key to complete the setup.`,
+            text: `Add your assistant API key to complete the setup. To get this go to the mintlify dashboard and click on the assistant tab and click settings > API Key > Create Assistant API Key`,
           },
         },
         {
           type: "divider",
-        },
-        {
-          type: "input",
-          block_id: "domain_block",
-          element: {
-            type: "plain_text_input",
-            action_id: "domain_input",
-            initial_value: isDomainConfigured,
-          },
-          label: {
-            type: "plain_text",
-            text: "Domain Name (configured)",
-          },
-          optional: true,
-          hint: {
-            type: "plain_text",
-            text: "This field has been auto-configured and is read-only.",
-          },
-        },
-        {
-          type: "input",
-          block_id: "url_block",
-          element: {
-            type: "url_text_input",
-            action_id: "url_input",
-            initial_value: isUrlConfigured,
-          },
-          label: {
-            type: "plain_text",
-            text: "Documentation URL (configured)",
-          },
-          optional: true,
-          hint: {
-            type: "plain_text",
-            text: "This field has been auto-configured and is read-only.",
-          },
         },
         {
           type: "input",
