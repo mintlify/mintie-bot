@@ -1,8 +1,8 @@
-import { ChannelMentionEvent, EventType } from "./../types";
+import { ChannelMentionEvent, EventType } from "../types";
 import { logEvent } from "../utils/logging";
 import { WebClient } from "@slack/web-api";
 import { fetchThreadHistory, getChannelName } from "../utils/utils";
-import { processMessage } from "../operator/event_operator";
+import { processMessage } from "../operators/event_operator";
 
 async function handleChannelMention(
   event: ChannelMentionEvent,

@@ -1,7 +1,7 @@
 import { App } from "@slack/bolt";
-import { handleChannelMention } from "../handler/event_handler";
+import { handleChannelMention } from "../handlers/event_handler";
 import { ChannelMentionEvent, EventType } from "../types";
-import { handleChannelMessage } from "../handler/event_handler";
+import { handleChannelMessage } from "../handlers/event_handler";
 import uninstallApp from "../database/auth/uninstall_app";
 import { logEvent } from "../utils/logging";
 
