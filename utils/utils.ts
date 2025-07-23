@@ -204,7 +204,6 @@ export const constructDocumentationURL = async (
   });
 
   if (deployment) {
-    console.log("deployment", deployment);
     if (deployment.customDomains) {
       return `https://${deployment.customDomains[0]}${
         deployment.basePath || ""

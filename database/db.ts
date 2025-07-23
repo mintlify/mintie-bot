@@ -34,16 +34,6 @@ const getDB = async () => {
   return db;
 };
 
-const domainConfigSchema = new mongoose.Schema({
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
-
 const SlackUser = mongoose.model("SlackUsers", usersSchema, "slackUsers");
-const DomainConfig = mongoose.model(
-  "DomainConfigs",
-  domainConfigSchema,
-  "domainConfigs",
-);
 
-export default { SlackUser, DomainConfig, connect, getDB };
+export default { SlackUser, connect, getDB };

@@ -2,7 +2,7 @@ import { Assistant } from "@slack/bolt";
 import { fetchThreadHistory } from "../utils/utils";
 import { EventType } from "../types";
 import { logEvent } from "../utils/logging";
-import { processMessage } from "../operator/event_operator";
+import { processMessage } from "../operators/event_operator";
 
 async function createAssistant() {
   return new Assistant({
