@@ -1,13 +1,11 @@
-interface MintlifyAssistantAPIKeyResponse {
-  keyId: string;
-  key: string;
-  createdAt: string;
-}
+import { getMintlifyAssistantAPIKey } from "../operator/mintlify_operator";
 
-export const getMintlifyAssistantAPIKey = async () => {
-  const response = (await fetch(
-    `${process.env.API_URL}/api/deployment/discovery-api-key/mintlify`,
-  ).then((res) => res.json())) as MintlifyAssistantAPIKeyResponse;
+export const handleCreateMintlifyAssistantKey = async () => {
+  const apiKey = await getMintlifyAssistantAPIKey();
 
-  return response.key;
+  if (!apiKey) {
+    throw new Error("Failed to create Mintlify assistant key");
+  }
+
+  return apiKey;
 };

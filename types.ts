@@ -45,9 +45,8 @@ export interface DocsLink {
 }
 
 export interface MintlifyConfig {
-  domain: string;
-  url: string;
-  authKey: string;
+  subdomain: string;
+  keyId: string;
   isConfigured: boolean;
 }
 

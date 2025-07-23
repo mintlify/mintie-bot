@@ -4,12 +4,16 @@ dotenv.config();
 import mongoose from "mongoose";
 import { EventType } from "../types";
 import { logEvent } from "../utils/logging";
+import { usersSchema } from "./SlackUser";
 
 const uri = process.env.MONGODB_URI || "";
 
-const connect = async function () {
+const connect = async () => {
+  let db;
   try {
     await mongoose.connect(uri);
+    db = mongoose.connection.db;
+
     logEvent({
       text: "Connected to MongoDB",
       eventType: EventType.APP_INFO,
@@ -21,38 +25,14 @@ const connect = async function () {
     });
     throw error;
   }
+
+  return db;
 };
 
-const usersSchema = new mongoose.Schema(
-  {
-    _id: String,
-    team: { id: String, name: String },
-    enterprise: { id: String, name: String },
-    user: { token: String, scopes: [String], id: String },
-    tokenType: String,
-    isEnterpriseInstall: Boolean,
-    appId: String,
-    authVersion: String,
-    bot: {
-      scopes: [String],
-      token: String,
-      userId: String,
-      id: String,
-    },
-    mintlify: {
-      domain: String,
-      url: String,
-      authKey: String,
-      isConfigured: { type: Boolean, default: false },
-    },
-    installationState: {
-      domain: String,
-      url: String,
-      savedAt: Date,
-    },
-  },
-  { _id: false },
-);
+const getDB = async () => {
+  const db = await connect();
+  return db;
+};
 
 const domainConfigSchema = new mongoose.Schema({
   domain: { type: String, required: true, unique: true },
@@ -70,4 +50,4 @@ const DomainConfig = mongoose.model(
   "domainConfigs",
 );
 
-export default { SlackUser, DomainConfig, connect };
+export default { SlackUser, DomainConfig, connect, getDB };

@@ -26,7 +26,7 @@ const findUser = async (id: string) => {
 const isConfigured = async (teamId: string): Promise<boolean> => {
   try {
     const user = await findUser(teamId);
-    return user?.mintlify?.isConfigured === true;
+    return user?.isConfigured === true;
   } catch (error) {
     logEvent({
       text: `Error checking team configuration: ${error}`,
