@@ -46,8 +46,7 @@ export interface DocsLink {
 
 export interface MintlifyConfig {
   subdomain: string;
-  keyId: string;
-  isConfigured: boolean;
+  apiKey: string;
 }
 
 export interface ChannelMentionEvent {

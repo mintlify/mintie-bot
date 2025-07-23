@@ -23,17 +23,4 @@ const findUser = async (id: string) => {
   throw new Error(`No installation found for ${id}`);
 };
 
-const isConfigured = async (teamId: string): Promise<boolean> => {
-  try {
-    const user = await findUser(teamId);
-    return user?.isConfigured === true;
-  } catch (error) {
-    logEvent({
-      text: `Error checking team configuration: ${error}`,
-      eventType: EventType.APP_ERROR,
-    });
-    return false;
-  }
-};
-
-export default { findUser, isConfigured };
+export default { findUser };

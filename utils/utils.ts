@@ -7,6 +7,7 @@ import {
   ChannelMentionEvent,
 } from "../types";
 import { logEvent } from "./logging";
+import db from "../database/db";
 
 export function parseStreamingResponse(
   request: ParseStreamingRequest,
@@ -192,3 +193,26 @@ export async function fetchThreadHistory(
 
   return "";
 }
+
+export const constructDocumentationURL = async (
+  subdomain: string,
+): Promise<string> => {
+  const dbInstance = await db.getDB();
+
+  const deployment = await dbInstance?.collection("deployments").findOne({
+    subdomain: subdomain,
+  });
+
+  if (deployment) {
+    console.log("deployment", deployment);
+    if (deployment.customDomains) {
+      return `https://${deployment.customDomains[0]}${
+        deployment.basePath || ""
+      }`;
+    } else {
+      return `https://${subdomain}.mintlify.app${deployment.basePath || ""}`;
+    }
+  } else {
+    throw new Error("Docs deployment not found");
+  }
+};
