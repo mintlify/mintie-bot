@@ -35,10 +35,6 @@ const getDB = async () => {
 };
 
 const domainConfigSchema = new mongoose.Schema({
-  domain: { type: String, required: true, unique: true },
-  url: String,
-  authKey: String,
-  isConfigured: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

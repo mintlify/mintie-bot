@@ -20,7 +20,7 @@ const envConfig = getEnvs();
 
 const domainConfigStore = new Map<
   string,
-  { id: string; subdomain: string; keyId: string; timestamp: number }
+  { id: string; subdomain: string; apiKey: string; timestamp: number }
 >();
 
 setInterval(() => {
@@ -70,51 +70,37 @@ const app = new App({
             "base64",
           ).toString("utf8");
 
-          const { subdomain, keyId } = JSON.parse(decodedParams);
+          const { subdomain, apiKey } = JSON.parse(decodedParams);
 
           logEvent({
-            text: `Decoded install params: subdomain=${subdomain}, keyId=${keyId}`,
+            text: `Decoded install params: subdomain=${subdomain}, apiKey=${apiKey}`,
             eventType: EventType.APP_INFO,
           });
 
-          if (subdomain && keyId) {
+          if (subdomain && apiKey) {
             const configId = randomUUID();
 
             await model.SlackUser.create({
               _id: configId,
-              "installationState.configId": configId,
-              "installationState.subdomain": subdomain,
-              "installationState.keyId": keyId,
-              "installationState.savedAt": new Date(),
-              "installationState.isPartial": true,
+              subdomain: subdomain,
+              apiKey: apiKey,
             });
 
             domainConfigStore.set(configId, {
               id: configId,
               subdomain,
-              keyId,
+              apiKey,
               timestamp: Date.now(),
             });
-
-            logEvent({
-              text: `Stored in-memory config for subdomain: ${subdomain}, keyId: ${keyId}`,
-              eventType: EventType.APP_INFO,
-            });
-
             res.setHeader(
               "Set-Cookie",
               `mintie_config_id=${configId}; HttpOnly; Secure; SameSite=Lax; Max-Age=600; Path=/`,
             );
-
             res.writeHead(302, { Location: "/slack/install" });
             res.end();
           } else {
-            logEvent({
-              text: `Missing subdomain or keyId parameter: subdomain=${subdomain}, keyId=${keyId}`,
-              eventType: EventType.APP_ERROR,
-            });
             res.writeHead(400);
-            res.end("Missing subdomain or keyId parameter");
+            res.end("Missing subdomain or apiKey parameter");
           }
         } catch (error) {
           logEvent({
@@ -137,7 +123,7 @@ const app = new App({
         _req: IncomingMessage,
         res: ServerResponse,
       ) => {
-        let stateData: { subdomain?: string; keyId?: string } = {};
+        let stateData: { subdomain?: string; apiKey?: string } = {};
 
         const teamId = installation.team?.id;
         let foundDomainConfig = null;
@@ -163,22 +149,20 @@ const app = new App({
         if (foundDomainConfig && teamId && configId) {
           stateData = {
             subdomain: foundDomainConfig.subdomain,
-            keyId: foundDomainConfig.keyId,
+            apiKey: foundDomainConfig.apiKey,
+          };
+
+          const updateData: {
+            subdomain: string;
+            apiKey: string;
+          } = {
+            subdomain: foundDomainConfig.subdomain,
+            apiKey: foundDomainConfig.apiKey,
           };
 
           await model.SlackUser.updateOne(
             { _id: teamId },
-            {
-              $set: {
-                subdomain: foundDomainConfig.subdomain,
-                keyId: foundDomainConfig.keyId,
-                isConfigured: false,
-                "installationState.subdomain": foundDomainConfig.subdomain,
-                "installationState.keyId": foundDomainConfig.keyId,
-                "installationState.configId": configId,
-                "installationState.savedAt": new Date(),
-              },
-            },
+            { $set: updateData },
             { upsert: true },
           );
 
@@ -229,23 +213,9 @@ const app = new App({
           setTimeout(async () => {
             try {
               const teamId = installation.team?.id;
-              if (teamId && stateData.subdomain && stateData.keyId) {
-                await model.SlackUser.updateOne(
-                  { _id: teamId },
-                  {
-                    $set: {
-                      subdomain: stateData.subdomain,
-                      keyId: stateData.keyId,
-                      isConfigured: false,
-                    },
-                  },
-                );
-
-                logEvent({
-                  text: `Pre-configured Mintlify for team ${teamId}: subdomain=${stateData.subdomain}, keyId=${stateData.keyId}`,
-                  eventType: EventType.APP_INFO,
-                });
-              } else if (teamId && (stateData.subdomain || stateData.keyId)) {
+              if (teamId && stateData.subdomain && stateData.apiKey) {
+                await model.SlackUser.updateOne({ _id: teamId }, { $set: stateData });
+              } else if (teamId && (stateData.subdomain || stateData.apiKey)) {
                 logEvent({
                   text: `Saved partial installation state for team ${teamId}: ${JSON.stringify(
                     stateData,

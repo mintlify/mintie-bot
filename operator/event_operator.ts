@@ -4,7 +4,7 @@ import { StatusManager } from "../utils/status_manager";
 import { EventType, MintlifyApiRequest, MintlifyConfig } from "../types";
 import { logEvent } from "../utils/logging";
 import dbQuery from "../database/get_user";
-import { constructDocumentationURL } from "./mintlify_operator";
+import { constructDocumentationURL } from "../utils/utils";
 
 async function processMessage(
   client: WebClient,
@@ -109,13 +109,22 @@ async function createMessage(
 ): Promise<string> {
   const requestBody = JSON.stringify(apiRequest);
 
+  logEvent({
+    text: `API Request - Subdomain: ${
+      mintlifyConfig.subdomain
+    }, API Key present: ${!!mintlifyConfig.apiKey}, API Key length: ${
+      mintlifyConfig.apiKey?.length || 0
+    }`,
+    eventType: EventType.APP_DEBUG,
+  });
+
   const response = await fetch(
-    `https://api-dsc.mintlify.com/v1/assistant/${mintlifyConfig.subdomain}/message`,
+    `http://localhost:5000/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `${mintlifyConfig.keyId}`,
+        Authorization: `${mintlifyConfig.apiKey}`,
         "User-Agent": "Mintlify-Slack-Bot/1.0",
       },
       body: requestBody,
@@ -125,7 +134,7 @@ async function createMessage(
       if (!res.ok) {
         const errorText = await res.text();
         logEvent({
-          event: errorText,
+          text: `API Error: ${errorText}`,
           eventType: EventType.APP_GENERATE_MESSAGE_ERROR,
         });
         return errorText;
