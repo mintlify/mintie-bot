@@ -75,7 +75,7 @@ export function parseStreamingResponse(
     .replace(/\\t/g, " ")
     .replace(
       /(^|\n)~~~\s*(\w+)?\s*\n/g,
-      (match, p1, lang) => `${p1}\`\`\`${lang ? lang : ""}\n`,
+      (_match, p1, lang) => `${p1}\`\`\`${lang ? lang : ""}\n`,
     )
     .replace(/(^|\n)~~~\s*(?=\n|$)/g, `$1\`\`\`\n`)
     .replace(/~~~+/g, "```")
