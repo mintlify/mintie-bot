@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { App, LogLevel, InstallURLOptions } from "@slack/bolt";
-import { WebClient } from "@slack/web-api";
 import { getEnvs } from "./env_manager";
 import { createAssistant } from "./handler/assistant_handler";
 import { EventType } from "./types";
@@ -15,15 +14,7 @@ import { Installation, InstallationQuery, CodedError } from "@slack/bolt";
 import { IncomingMessage, ServerResponse } from "http";
 import { ParamsIncomingMessage } from "@slack/bolt/dist/receivers/ParamsIncomingMessage";
 import { randomUUID } from "crypto";
-import {
-  openMintlifyConfigModal,
-  handleMintlifyConfigSubmission,
-} from "./handler/mintlify_modal";
 import { handleAppMention } from "./listeners/listeners";
-import {
-  fullConfigureMintlifyMessage,
-  preConfiguredMintlifyMessage,
-} from "./start_messages";
 
 const envConfig = getEnvs();
 
@@ -32,17 +23,14 @@ const domainConfigStore = new Map<
   { id: string; domain: string; url: string; timestamp: number }
 >();
 
-setInterval(
-  () => {
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-    for (const [key, value] of domainConfigStore.entries()) {
-      if (value.timestamp < tenMinutesAgo) {
-        domainConfigStore.delete(key);
-      }
+setInterval(() => {
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  for (const [key, value] of domainConfigStore.entries()) {
+    if (value.timestamp < tenMinutesAgo) {
+      domainConfigStore.delete(key);
     }
-  },
-  10 * 60 * 1000,
-);
+  }
+}, 10 * 60 * 1000);
 
 const app = new App({
   signingSecret: envConfig.SLACK_SIGNING_SECRET,
@@ -240,8 +228,6 @@ const app = new App({
 
           setTimeout(async () => {
             try {
-              const client = new WebClient(installation.bot?.token);
-
               const teamId = installation.team?.id;
               if (teamId && stateData.domain && stateData.url) {
                 await model.SlackUser.updateOne(
@@ -266,25 +252,6 @@ const app = new App({
                   )}`,
                   eventType: EventType.APP_INFO,
                 });
-              }
-
-              if (stateData.domain && stateData.url) {
-                logEvent({
-                  text: `Sending welcome message with pre-configured settings to user ${installation.user?.id}`,
-                  eventType: EventType.APP_INFO,
-                });
-
-                await client.chat.postMessage(
-                  preConfiguredMintlifyMessage(
-                    installation.user?.id,
-                    stateData.domain,
-                    stateData.url,
-                  ),
-                );
-              } else {
-                await client.chat.postMessage(
-                  fullConfigureMintlifyMessage(installation.user?.id),
-                );
               }
             } catch (error) {
               logEvent({
@@ -335,57 +302,6 @@ const app = new App({
       throw new Error("Failed fetching installation");
     },
   },
-});
-
-app.action("configure_mintlify", async ({ ack, body, client, context }) => {
-  await ack();
-  const teamId = context.teamId;
-  if (!teamId) {
-    throw new Error("Team ID not found in context");
-  }
-
-  const triggerId = "trigger_id" in body ? body.trigger_id : "";
-  await openMintlifyConfigModal(client, triggerId, teamId);
-});
-
-app.view("mintlify_config_modal", async ({ ack, view, client }) => {
-  try {
-    const response = await handleMintlifyConfigSubmission({ view });
-
-    if (response.response_action === "errors") {
-      await ack({
-        response_action: "errors" as const,
-        errors: response.errors,
-      });
-    } else {
-      await ack();
-    }
-
-    if (response.response_action === "clear") {
-      const { private_metadata } = view;
-      const { teamId } = JSON.parse(private_metadata);
-
-      const installation = await dbQuery.findUser(teamId);
-      if (installation?.user?.id) {
-        await client.chat.postMessage({
-          channel: installation.user.id,
-          text: "Mintlify configuration saved successfully! You're all set to use Mintie for your documentation needs.",
-        });
-      }
-    }
-  } catch (error) {
-    logEvent({
-      text: `Error updating Mintlify config: ${error}`,
-      eventType: EventType.APP_ERROR,
-    });
-    await ack({
-      response_action: "errors" as const,
-      errors: {
-        domain_block:
-          "An error occurred while saving your configuration. Please try again.",
-      },
-    });
-  }
 });
 
 (async () => {
