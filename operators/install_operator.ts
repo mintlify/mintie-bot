@@ -1,4 +1,5 @@
 import { Installation, InstallURLOptions } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import { IncomingMessage, ServerResponse } from "http";
 import { ParamsIncomingMessage } from "@slack/bolt/dist/receivers/ParamsIncomingMessage";
 import { randomUUID } from "crypto";
@@ -6,23 +7,22 @@ import { EventType } from "../types";
 import { logEvent } from "../utils/logging";
 import model from "../database/db";
 import { MintlifyConfig } from "../types";
+import { constructDocumentationURL } from "../utils/utils";
+import dbQuery from "../database/get_user";
 
 const domainConfigStore = new Map<
   string,
   { id: string; subdomain: string; apiKey: string; timestamp: number }
 >();
 
-setInterval(
-  () => {
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-    for (const [key, value] of domainConfigStore.entries()) {
-      if (value.timestamp < tenMinutesAgo) {
-        domainConfigStore.delete(key);
-      }
+setInterval(() => {
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  for (const [key, value] of domainConfigStore.entries()) {
+    if (value.timestamp < tenMinutesAgo) {
+      domainConfigStore.delete(key);
     }
-  },
-  10 * 60 * 1000,
-);
+  }
+}, 10 * 60 * 1000);
 
 async function processCustomInstall(
   req: ParamsIncomingMessage,
@@ -82,6 +82,63 @@ async function processCustomInstall(
   }
 }
 
+async function sendCongratulationsDM(
+  installation: Installation<"v1" | "v2", boolean>,
+  config?: { subdomain: string; apiKey: string },
+): Promise<void> {
+  try {
+    const client = new WebClient(installation.bot?.token);
+    const userId = installation.user?.id;
+
+    if (!userId) {
+      logEvent({
+        text: "Cannot send congratulations DM - no user ID found",
+        eventType: EventType.APP_INFO,
+      });
+      return;
+    }
+
+    let messageText =
+      "🎉 *Congratulations on installing mintie!*\n\nI'm your AI documentation assistant and I'm here to help you with all your Mintlify documentation needs.";
+
+    if (config?.subdomain) {
+      const documentationUrl = await constructDocumentationURL(
+        config.subdomain,
+      );
+      messageText += `\n\n*Your Mintlify Docs Site:*\n${documentationUrl}`;
+    }
+
+    messageText +=
+      "\n\n*Getting Started:*\n•  Add me to any channel where you want documentation help\n•  Simply mention @mintlify or ask questions in channels I'm added to\n•  I can help answer questions about your docs, explain concepts, and more!";
+
+    await client.chat.postMessage({
+      channel: userId,
+      text: "🎉 Congratulations on installing mintie!",
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: messageText,
+          },
+        },
+      ],
+    });
+
+    logEvent({
+      text: `Congratulations DM sent to user ${userId}${
+        config ? ` with domain ${config.subdomain}` : ""
+      }`,
+      eventType: EventType.APP_INFO,
+    });
+  } catch (error) {
+    logEvent({
+      text: `Failed to send congratulations DM: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
+  }
+}
+
 async function processInstallationSuccess(
   installation: Installation<"v1" | "v2", boolean>,
   _installOptions: InstallURLOptions,
@@ -99,24 +156,41 @@ async function processInstallationSuccess(
     return;
   }
 
-  let foundConfig = findConfigFromCookie(req.headers.cookie);
-  if (!foundConfig) {
-    foundConfig = findAnyConfig();
-  }
+  const foundConfig = findConfigFromCookie(req.headers.cookie);
+
+  let teamConfig: MintlifyConfig | undefined;
 
   if (foundConfig) {
     const { config, configId } = foundConfig;
-    await updateTeamConfig(
-      teamId,
-      { subdomain: config.subdomain, apiKey: config.apiKey },
-      configId,
-    );
+    teamConfig = { subdomain: config.subdomain, apiKey: config.apiKey };
+    await updateTeamConfig(teamId, teamConfig, configId);
   } else {
     logEvent({
       text: `No domain configuration found in memory for team ${teamId}`,
       eventType: EventType.APP_INFO,
     });
+
+    try {
+      const existingTeamData = await dbQuery.findUser(teamId);
+      if (existingTeamData?.subdomain && existingTeamData?.apiKey) {
+        teamConfig = {
+          subdomain: existingTeamData.subdomain,
+          apiKey: existingTeamData.apiKey,
+        };
+        logEvent({
+          text: `Retrieved existing config from database for team ${teamId}: ${existingTeamData.subdomain}`,
+          eventType: EventType.APP_INFO,
+        });
+      }
+    } catch (error) {
+      logEvent({
+        text: `Could not retrieve existing config from database for team ${teamId}: ${error}`,
+        eventType: EventType.APP_INFO,
+      });
+    }
   }
+
+  await sendCongratulationsDM(installation, teamConfig);
 
   logEvent({
     text: `Installation successful for team ${teamId}`,
@@ -160,13 +234,6 @@ function findConfigFromCookie(
     const configId = cookieMatch[1];
     const config = domainConfigStore.get(configId);
     if (config) return { config, configId };
-  }
-  return null;
-}
-
-function findAnyConfig(): { config: MintlifyConfig; configId: string } | null {
-  for (const [id, config] of domainConfigStore.entries()) {
-    return { config, configId: id };
   }
   return null;
 }
