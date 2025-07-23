@@ -4,6 +4,7 @@ import { StatusManager } from "../utils/status_manager";
 import { EventType, MintlifyApiRequest, MintlifyConfig } from "../types";
 import { logEvent } from "../utils/logging";
 import dbQuery from "../database/get_user";
+import { constructDocumentationURL } from "./mintlify_operator";
 
 async function processMessage(
   client: WebClient,
@@ -19,16 +20,11 @@ async function processMessage(
     const teamId = authTest.team_id || "";
 
     const teamData = await dbQuery.findUser(teamId);
-    const mintlifyConfig = teamData?.mintlify as MintlifyConfig;
+    const mintlifyConfig = teamData as MintlifyConfig;
 
-    if (!mintlifyConfig?.isConfigured) {
-      await client.chat.postMessage({
-        channel,
-        text: "Hi! I'm Mintie, your AI documentation assistant. To get started, please complete your setup by clicking the `Add API Key` button that was sent when you installed the app.",
-        thread_ts: threadTs || originalMessageTs,
-      });
-      return;
-    }
+    const documentationURL = await constructDocumentationURL(
+      mintlifyConfig.subdomain,
+    );
 
     const fingerprint = generateFingerprint(channel, threadTs);
     const apiRequest = formatApiRequest(userMessage, fingerprint);
@@ -44,7 +40,7 @@ async function processMessage(
       client,
       channel,
       messageTs,
-      mintlifyConfig.url,
+      documentationURL,
     );
 
     statusManager.start();
@@ -114,12 +110,12 @@ async function createMessage(
   const requestBody = JSON.stringify(apiRequest);
 
   const response = await fetch(
-    `https://api-dsc.mintlify.com/v1/assistant/${mintlifyConfig.domain}/message`,
+    `https://api-dsc.mintlify.com/v1/assistant/${mintlifyConfig.subdomain}/message`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `${mintlifyConfig.authKey}`,
+        Authorization: `${mintlifyConfig.keyId}`,
         "User-Agent": "Mintlify-Slack-Bot/1.0",
       },
       body: requestBody,

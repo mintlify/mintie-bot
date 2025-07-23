@@ -12,7 +12,7 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://wpizyd-ip-108-91-117-220.tunnelmole.net/slack/oauth_redirect"
+      "https://clwqoz-ip-108-91-117-220.tunnelmole.net/slack/oauth_redirect"
     ],
     "scopes": {
       "bot": [
@@ -32,7 +32,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://wpizyd-ip-108-91-117-220.tunnelmole.net/slack/events",
+      "request_url": "https://clwqoz-ip-108-91-117-220.tunnelmole.net/slack/events",
       "bot_events": [
         "app_mention",
         "assistant_thread_context_changed",
@@ -47,7 +47,7 @@
     },
     "interactivity": {
       "is_enabled": true,
-      "request_url": "https://wpizyd-ip-108-91-117-220.tunnelmole.net/slack/events"
+      "request_url": "https://clwqoz-ip-108-91-117-220.tunnelmole.net/slack/events"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,

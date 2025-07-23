@@ -20,7 +20,7 @@ const envConfig = getEnvs();
 
 const domainConfigStore = new Map<
   string,
-  { id: string; domain: string; url: string; timestamp: number }
+  { id: string; subdomain: string; keyId: string; timestamp: number }
 >();
 
 setInterval(() => {
@@ -70,34 +70,34 @@ const app = new App({
             "base64",
           ).toString("utf8");
 
-          const { domain, url } = JSON.parse(decodedParams);
+          const { subdomain, keyId } = JSON.parse(decodedParams);
 
           logEvent({
-            text: `Decoded install params: domain=${domain}, url=${url}`,
+            text: `Decoded install params: subdomain=${subdomain}, keyId=${keyId}`,
             eventType: EventType.APP_INFO,
           });
 
-          if (domain && url) {
+          if (subdomain && keyId) {
             const configId = randomUUID();
 
             await model.SlackUser.create({
               _id: configId,
               "installationState.configId": configId,
-              "installationState.domain": domain,
-              "installationState.url": url,
+              "installationState.subdomain": subdomain,
+              "installationState.keyId": keyId,
               "installationState.savedAt": new Date(),
               "installationState.isPartial": true,
             });
 
             domainConfigStore.set(configId, {
               id: configId,
-              domain,
-              url,
+              subdomain,
+              keyId,
               timestamp: Date.now(),
             });
 
             logEvent({
-              text: `Stored in-memory config for domain: ${domain}, url: ${url}`,
+              text: `Stored in-memory config for subdomain: ${subdomain}, keyId: ${keyId}`,
               eventType: EventType.APP_INFO,
             });
 
@@ -110,11 +110,11 @@ const app = new App({
             res.end();
           } else {
             logEvent({
-              text: `Missing domain or url parameter: domain=${domain}, url=${url}`,
+              text: `Missing subdomain or keyId parameter: subdomain=${subdomain}, keyId=${keyId}`,
               eventType: EventType.APP_ERROR,
             });
             res.writeHead(400);
-            res.end("Missing domain or url parameter");
+            res.end("Missing subdomain or keyId parameter");
           }
         } catch (error) {
           logEvent({
@@ -137,7 +137,7 @@ const app = new App({
         _req: IncomingMessage,
         res: ServerResponse,
       ) => {
-        let stateData: { domain?: string; url?: string } = {};
+        let stateData: { subdomain?: string; keyId?: string } = {};
 
         const teamId = installation.team?.id;
         let foundDomainConfig = null;
@@ -162,19 +162,19 @@ const app = new App({
 
         if (foundDomainConfig && teamId && configId) {
           stateData = {
-            domain: foundDomainConfig.domain,
-            url: foundDomainConfig.url,
+            subdomain: foundDomainConfig.subdomain,
+            keyId: foundDomainConfig.keyId,
           };
 
           await model.SlackUser.updateOne(
             { _id: teamId },
             {
               $set: {
-                "mintlify.domain": foundDomainConfig.domain,
-                "mintlify.url": foundDomainConfig.url,
-                "mintlify.isConfigured": false,
-                "installationState.domain": foundDomainConfig.domain,
-                "installationState.url": foundDomainConfig.url,
+                subdomain: foundDomainConfig.subdomain,
+                keyId: foundDomainConfig.keyId,
+                isConfigured: false,
+                "installationState.subdomain": foundDomainConfig.subdomain,
+                "installationState.keyId": foundDomainConfig.keyId,
                 "installationState.configId": configId,
                 "installationState.savedAt": new Date(),
               },
@@ -229,23 +229,23 @@ const app = new App({
           setTimeout(async () => {
             try {
               const teamId = installation.team?.id;
-              if (teamId && stateData.domain && stateData.url) {
+              if (teamId && stateData.subdomain && stateData.keyId) {
                 await model.SlackUser.updateOne(
                   { _id: teamId },
                   {
                     $set: {
-                      "mintlify.domain": stateData.domain,
-                      "mintlify.url": stateData.url,
-                      "mintlify.isConfigured": false,
+                      subdomain: stateData.subdomain,
+                      keyId: stateData.keyId,
+                      isConfigured: false,
                     },
                   },
                 );
 
                 logEvent({
-                  text: `Pre-configured Mintlify for team ${teamId}: domain=${stateData.domain}, url=${stateData.url}`,
+                  text: `Pre-configured Mintlify for team ${teamId}: subdomain=${stateData.subdomain}, keyId=${stateData.keyId}`,
                   eventType: EventType.APP_INFO,
                 });
-              } else if (teamId && (stateData.domain || stateData.url)) {
+              } else if (teamId && (stateData.subdomain || stateData.keyId)) {
                 logEvent({
                   text: `Saved partial installation state for team ${teamId}: ${JSON.stringify(
                     stateData,
