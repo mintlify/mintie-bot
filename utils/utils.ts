@@ -12,61 +12,87 @@ import db from "../database/db";
 export function parseStreamingResponse(
   request: ParseStreamingRequest,
 ): ParseStreamingResult {
-  const lines = request.streamData.split("\n").filter((line) => line.trim());
   let fullMessage = "";
   let sources: DocsLink[] = [];
 
-  const messageBlocks: string[][] = [];
-  let currentBlock: string[] = [];
-
-  for (const line of lines) {
-    if (line.match(/^f:\{"messageId":/)) {
-      if (currentBlock.length > 0) {
-        messageBlocks.push(currentBlock);
-      }
-      currentBlock = [line];
-    } else {
-      currentBlock.push(line);
+  try {
+    // Try to parse as JSON first (non-streaming response)
+    const jsonResponse = JSON.parse(request.streamData);
+    if (jsonResponse.message) {
+      fullMessage = jsonResponse.message;
+    } else if (jsonResponse.content) {
+      fullMessage = jsonResponse.content;
+    } else if (typeof jsonResponse === 'string') {
+      fullMessage = jsonResponse;
     }
-  }
+    
+    if (jsonResponse.sources) {
+      sources = jsonResponse.sources;
+    }
+  } catch {
+    // Fallback to original streaming parsing logic
+    const lines = request.streamData.split("\n").filter((line) => line.trim());
 
-  if (currentBlock.length > 0) {
-    messageBlocks.push(currentBlock);
-  }
+    const messageBlocks: string[][] = [];
+    let currentBlock: string[] = [];
 
-  const finalBlock = messageBlocks[messageBlocks.length - 1] || [];
-
-  for (const line of finalBlock) {
-    try {
-      if (line.match(/^\d+:\[/)) {
-        const jsonMatch = line.match(/^\d+:\["(.*)"\]$/);
-        if (jsonMatch) {
-          const jsonString = jsonMatch[1]
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, "\\");
-
-          const parsed = JSON.parse(jsonString);
-
-          if (parsed.type === "text-delta" && parsed.textDelta) {
-            fullMessage += parsed.textDelta;
-          } else if (parsed.type === "sources" && parsed.sources) {
-            sources = parsed.sources;
-          }
+    for (const line of lines) {
+      if (line.match(/^f:\{"messageId":/)) {
+        if (currentBlock.length > 0) {
+          messageBlocks.push(currentBlock);
         }
-      } else if (line.match(/^0:"/)) {
-        if (!fullMessage.trim()) {
+        currentBlock = [line];
+      } else {
+        currentBlock.push(line);
+      }
+    }
+
+    if (currentBlock.length > 0) {
+      messageBlocks.push(currentBlock);
+    }
+
+    const finalBlock = messageBlocks[messageBlocks.length - 1] || [];
+
+    for (const line of finalBlock) {
+      try {
+        if (line.match(/^\d+:\[/)) {
+          const jsonMatch = line.match(/^\d+:\[(.+)\]$/);
+          if (jsonMatch) {
+            let jsonString = jsonMatch[1];
+            
+            // Handle both quoted and unquoted JSON
+            if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
+              jsonString = jsonString.slice(1, -1)
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, "\\");
+            }
+
+            const parsed = JSON.parse(jsonString);
+
+            if (parsed.type === "text-delta" && parsed.textDelta) {
+              fullMessage += parsed.textDelta;
+            } else if (parsed.type === "sources" && parsed.sources) {
+              sources = parsed.sources;
+            }
+          }
+        } else if (line.match(/^0:"/)) {
           const textMatch = line.match(/^0:"(.*)"/);
           if (textMatch) {
-            fullMessage = textMatch[1];
+            fullMessage += textMatch[1];
           }
         }
+      } catch (parseError) {
+        logEvent({
+          text: `Error parsing streaming response: ${parseError}`,
+          eventType: EventType.APP_ERROR,
+        });
       }
-    } catch (parseError) {
-      logEvent({
-        text: `Error parsing streaming response: ${parseError}`,
-        eventType: EventType.APP_ERROR,
-      });
     }
+  }
+
+  // If we still don't have a message, use the raw data
+  if (!fullMessage.trim()) {
+    fullMessage = request.streamData;
   }
 
   const cleanResponse = fullMessage

@@ -56,13 +56,35 @@ async function processMessage(
       eventType: EventType.APP_ERROR,
     });
 
-    const errorThreadTs = statusManager?.messageTs;
+    // Handle specific Slack API errors
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'slack_webapi_platform_error' && 'data' in error) {
+        const slackError = error.data as any;
+        if (slackError?.error === 'not_in_channel') {
+          logEvent({
+            text: `Bot not in channel ${channel}. Please add the bot to the channel.`,
+            eventType: EventType.APP_ERROR,
+          });
+          return; // Don't crash, just return
+        }
+      }
+    }
 
-    await client.chat.postMessage({
-      channel,
-      text: "Sorry, I encountered an error while processing your request.",
-      thread_ts: errorThreadTs,
-    });
+    // Only try to send error message if we have a valid channel and messageTs
+    if (channel && statusManager?.messageTs) {
+      try {
+        await client.chat.postMessage({
+          channel,
+          text: "Sorry, I encountered an error while processing your request.",
+          thread_ts: statusManager.messageTs,
+        });
+      } catch (postError) {
+        logEvent({
+          text: `Failed to post error message: ${postError}`,
+          eventType: EventType.APP_ERROR,
+        });
+      }
+    }
   }
 }
 
@@ -139,7 +161,20 @@ async function createMessage(
         });
         return errorText;
       }
-      return res.text();
+      const responseText = await res.text();
+      
+      // Log the raw response for debugging
+      console.log("=== RAW FETCH RESPONSE ===");
+      console.log("Response length:", responseText.length);
+      console.log("Response content:", responseText);
+      console.log("=== END RAW RESPONSE ===");
+      
+      logEvent({
+        text: `Raw API Response: ${responseText.substring(0, 500)}${responseText.length > 500 ? '...' : ''}`,
+        eventType: EventType.APP_DEBUG,
+      });
+      
+      return responseText;
     })
     .catch((err) => {
       throw new Error(`Failed to call Mintlify API: ${err.message}`);
