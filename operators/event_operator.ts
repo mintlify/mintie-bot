@@ -119,7 +119,7 @@ async function createMessage(
   });
 
   const response = await fetch(
-    `http://localhost:5000/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
+    `https://leaves.mintlify.com/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
     {
       method: "POST",
       headers: {
