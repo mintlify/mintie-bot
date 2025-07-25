@@ -19,8 +19,15 @@ async function processMessage(
     const authTest = await client.auth.test();
     const teamId = authTest.team_id || "";
 
-    const teamData = await dbQuery.findUser(teamId);
-    const mintlifyConfig = teamData as MintlifyConfig;
+    const userData = await dbQuery.findUser(teamId);
+    const secrets = dbQuery.decryptUserSecrets(userData);
+    if (!secrets.apiKey) {
+      throw new Error(`No API key found for team ${teamId}`);
+    }
+    const mintlifyConfig = {
+      ...userData,
+      encryptedApiKey: secrets.apiKey,
+    } as MintlifyConfig;
 
     const documentationURL = await constructDocumentationURL(
       mintlifyConfig.subdomain,

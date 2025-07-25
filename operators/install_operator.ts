@@ -178,14 +178,17 @@ async function processInstallationSuccess(
     });
 
     try {
-      const existingTeamData = await dbQuery.findUser(teamId);
-      if (existingTeamData?.subdomain && existingTeamData?.encryptedApiKey) {
-        teamConfig = {
-          subdomain: existingTeamData.subdomain,
-          encryptedApiKey: existingTeamData.encryptedApiKey,
-        };
+      const userData = await dbQuery.findUser(teamId);
+      if (userData?.subdomain && userData?.encryptedApiKey) {
+        const secrets = dbQuery.decryptUserSecrets(userData);
+        if (secrets.apiKey) {
+          teamConfig = {
+            subdomain: userData.subdomain,
+            encryptedApiKey: secrets.apiKey,
+          };
+        }
         logEvent({
-          text: `Retrieved existing config from database for team ${teamId}: ${existingTeamData.subdomain}`,
+          text: `Retrieved existing config from database for team ${teamId}: ${userData.subdomain}`,
           eventType: EventType.APP_INFO,
         });
       }
