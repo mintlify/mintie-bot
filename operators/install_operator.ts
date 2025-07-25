@@ -12,7 +12,7 @@ import dbQuery from "../database/get_user";
 
 const domainConfigStore = new Map<
   string,
-  { id: string; subdomain: string; apiKey: string; timestamp: number }
+  { id: string; subdomain: string; encryptedApiKey: string; timestamp: number }
 >();
 
 setInterval(() => {
@@ -52,7 +52,7 @@ async function processCustomInstall(
       await model.SlackUser.create({
         _id: configId,
         subdomain: subdomain,
-        apiKey: model.encrypt(apiKey),
+        encryptedApiKey: model.encrypt(apiKey),
         isConfigured: false,
         createdAt: new Date(),
       });
@@ -60,7 +60,7 @@ async function processCustomInstall(
       domainConfigStore.set(configId, {
         id: configId,
         subdomain,
-        apiKey,
+        encryptedApiKey: apiKey,
         timestamp: Date.now(),
       });
 
@@ -86,7 +86,7 @@ async function processCustomInstall(
 
 async function sendCongratulationsDM(
   installation: Installation<"v1" | "v2", boolean>,
-  config?: { subdomain: string; apiKey: string },
+  config?: { subdomain: string; encryptedApiKey: string },
 ): Promise<void> {
   try {
     const client = new WebClient(installation.bot?.token);
@@ -164,7 +164,10 @@ async function processInstallationSuccess(
 
   if (foundConfig) {
     const { config, configId } = foundConfig;
-    teamConfig = { subdomain: config.subdomain, apiKey: config.apiKey };
+    teamConfig = {
+      subdomain: config.subdomain,
+      encryptedApiKey: config.encryptedApiKey,
+    };
     await updateTeamConfig(teamId, teamConfig, configId);
   } else {
     logEvent({
@@ -174,10 +177,10 @@ async function processInstallationSuccess(
 
     try {
       const existingTeamData = await dbQuery.findUser(teamId);
-      if (existingTeamData?.subdomain && existingTeamData?.apiKey) {
+      if (existingTeamData?.subdomain && existingTeamData?.encryptedApiKey) {
         teamConfig = {
           subdomain: existingTeamData.subdomain,
-          apiKey: existingTeamData.apiKey,
+          encryptedApiKey: existingTeamData.encryptedApiKey,
         };
         logEvent({
           text: `Retrieved existing config from database for team ${teamId}: ${existingTeamData.subdomain}`,
@@ -242,12 +245,18 @@ function findConfigFromCookie(
 
 async function updateTeamConfig(
   teamId: string,
-  config: { subdomain: string; apiKey: string },
+  config: { subdomain: string; encryptedApiKey: string },
   configId: string,
 ): Promise<void> {
   await model.SlackUser.updateOne(
     { _id: teamId },
-    { $set: { subdomain: config.subdomain, apiKey: model.encrypt(config.apiKey), isConfigured: true } },
+    {
+      $set: {
+        subdomain: config.subdomain,
+        encryptedApiKey: model.encrypt(config.encryptedApiKey),
+        isConfigured: true,
+      },
+    },
     { upsert: true },
   );
 
