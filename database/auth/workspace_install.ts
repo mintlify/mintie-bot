@@ -15,8 +15,8 @@ const saveUserWorkspaceInstall = async (installation: any) => {
       {
         _id: installation.team.id,
         team: { id: installation.team.id, name: installation.team.name },
-        enterprise: { id: "null", name: "null" },
-        user: { token: null, scopes: "null", id: installation.user.id },
+        enterprise: { id: null, name: null },
+        user: { token: null, scopes: null, id: installation.user.id },
         tokenType: installation.tokenType,
         isEnterpriseInstall: installation.isEnterpriseInstall,
         appId: installation.appId,

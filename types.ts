@@ -47,6 +47,7 @@ export interface DocsLink {
 export interface MintlifyConfig {
   subdomain: string;
   encryptedApiKey: string;
+  redirectUri?: string;
 }
 
 export interface ChannelMentionEvent {
