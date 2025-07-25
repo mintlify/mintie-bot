@@ -23,7 +23,7 @@ const saveUserWorkspaceInstall = async (installation: any) => {
         authVersion: installation.authVersion,
         bot: {
           scopes: installation.bot.scopes,
-          token: installation.bot.token,
+          token: model.encrypt(installation.bot.token),
           userId: installation.bot.userId,
           id: installation.bot.id,
         },

@@ -3,7 +3,16 @@ const findUser = async (id: string) => {
   try {
     const user = await model.SlackUser.find({ _id: id });
     if (user[0] !== undefined) {
-      return user[0];
+      const userData = user[0].toObject();
+
+      if (userData.bot?.token) {
+        userData.bot.token = model.decrypt(userData.bot.token);
+      }
+      if (userData.apiKey) {
+        userData.apiKey = model.decrypt(userData.apiKey);
+      }
+
+      return userData;
     }
   } catch (error) {
     console.error("Database error finding user:", error);
