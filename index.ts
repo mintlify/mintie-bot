@@ -80,13 +80,16 @@ const app = new App({
       if (installQuery.teamId) {
         const userData = await dbQuery.findUser(installQuery.teamId);
         if (userData?.bot?.encryptedToken) {
-          return {
-            ...userData,
-            bot: {
-              ...userData.bot,
-              token: userData.bot.encryptedToken,
-            },
-          } as Installation<"v1" | "v2", boolean>;
+          const secrets = dbQuery.decryptUserSecrets(userData);
+          if (secrets.botToken) {
+            return {
+              ...userData,
+              bot: {
+                ...userData.bot,
+                token: secrets.botToken,
+              },
+            } as Installation<"v1" | "v2", boolean>;
+          }
         }
         return userData as Installation<"v1" | "v2", boolean>;
       }
