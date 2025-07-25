@@ -53,6 +53,8 @@ async function processCustomInstall(
         _id: configId,
         subdomain: subdomain,
         apiKey: model.encrypt(apiKey),
+        isConfigured: false,
+        createdAt: new Date(),
       });
 
       domainConfigStore.set(configId, {
@@ -245,7 +247,7 @@ async function updateTeamConfig(
 ): Promise<void> {
   await model.SlackUser.updateOne(
     { _id: teamId },
-    { $set: { subdomain: config.subdomain, apiKey: model.encrypt(config.apiKey) } },
+    { $set: { subdomain: config.subdomain, apiKey: model.encrypt(config.apiKey), isConfigured: true } },
     { upsert: true },
   );
 

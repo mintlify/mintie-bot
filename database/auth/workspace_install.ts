@@ -27,6 +27,8 @@ const saveUserWorkspaceInstall = async (installation: any) => {
           userId: installation.bot.userId,
           id: installation.bot.id,
         },
+        isConfigured: false,
+        createdAt: new Date(),
       },
       { upsert: true },
     );
