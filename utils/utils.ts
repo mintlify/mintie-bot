@@ -16,21 +16,19 @@ export function parseStreamingResponse(
   let sources: DocsLink[] = [];
 
   try {
-    // Try to parse as JSON first (non-streaming response)
     const jsonResponse = JSON.parse(request.streamData);
     if (jsonResponse.message) {
       fullMessage = jsonResponse.message;
     } else if (jsonResponse.content) {
       fullMessage = jsonResponse.content;
-    } else if (typeof jsonResponse === 'string') {
+    } else if (typeof jsonResponse === "string") {
       fullMessage = jsonResponse;
     }
-    
+
     if (jsonResponse.sources) {
       sources = jsonResponse.sources;
     }
   } catch {
-    // Fallback to original streaming parsing logic
     const lines = request.streamData.split("\n").filter((line) => line.trim());
 
     const messageBlocks: string[][] = [];
@@ -59,10 +57,10 @@ export function parseStreamingResponse(
           const jsonMatch = line.match(/^\d+:\[(.+)\]$/);
           if (jsonMatch) {
             let jsonString = jsonMatch[1];
-            
-            // Handle both quoted and unquoted JSON
+
             if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
-              jsonString = jsonString.slice(1, -1)
+              jsonString = jsonString
+                .slice(1, -1)
                 .replace(/\\"/g, '"')
                 .replace(/\\\\/g, "\\");
             }
@@ -90,7 +88,6 @@ export function parseStreamingResponse(
     }
   }
 
-  // If we still don't have a message, use the raw data
   if (!fullMessage.trim()) {
     fullMessage = request.streamData;
   }
@@ -230,7 +227,7 @@ export const constructDocumentationURL = async (
   });
 
   if (deployment) {
-    if (deployment.customDomains) {
+    if (deployment.customDomains && deployment.customDomains.length > 0) {
       return `https://${deployment.customDomains[0]}${
         deployment.basePath || ""
       }`;
