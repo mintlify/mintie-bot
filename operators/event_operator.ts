@@ -5,6 +5,7 @@ import { EventType, MintlifyApiRequest, MintlifyConfig } from "../types";
 import { logEvent } from "../utils/logging";
 import dbQuery from "../database/get_user";
 import { constructDocumentationURL } from "../utils/utils";
+import fs from "fs";
 
 async function processMessage(
   client: WebClient,
@@ -56,21 +57,19 @@ async function processMessage(
       eventType: EventType.APP_ERROR,
     });
 
-    // Handle specific Slack API errors
-    if (error && typeof error === 'object' && 'code' in error) {
-      if (error.code === 'slack_webapi_platform_error' && 'data' in error) {
-        const slackError = error.data as any;
-        if (slackError?.error === 'not_in_channel') {
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "slack_webapi_platform_error" && "data" in error) {
+        const slackError = error.data as { error?: string };
+        if (slackError?.error === "not_in_channel") {
           logEvent({
             text: `Bot not in channel ${channel}. Please add the bot to the channel.`,
             eventType: EventType.APP_ERROR,
           });
-          return; // Don't crash, just return
+          return;
         }
       }
     }
 
-    // Only try to send error message if we have a valid channel and messageTs
     if (channel && statusManager?.messageTs) {
       try {
         await client.chat.postMessage({
@@ -118,17 +117,6 @@ async function generateResponse(
   statusManager: StatusManager,
   mintlifyConfig: MintlifyConfig,
 ): Promise<void> {
-  const response = await createMessage(apiRequest, mintlifyConfig);
-
-  if (response) {
-    await statusManager.finalUpdate(response);
-  }
-}
-
-async function createMessage(
-  apiRequest: MintlifyApiRequest,
-  mintlifyConfig: MintlifyConfig,
-): Promise<string> {
   const requestBody = JSON.stringify(apiRequest);
 
   logEvent({
@@ -140,47 +128,41 @@ async function createMessage(
     eventType: EventType.APP_DEBUG,
   });
 
-  const response = await fetch(
-    `https://leaves.mintlify.com/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `${mintlifyConfig.apiKey}`,
-        "User-Agent": "Mintlify-Slack-Bot/1.0",
-      },
-      body: requestBody,
-    },
-  )
-    .then(async (res) => {
-      if (!res.ok) {
-        const errorText = await res.text();
-        logEvent({
-          text: `API Error: ${errorText}`,
-          eventType: EventType.APP_GENERATE_MESSAGE_ERROR,
-        });
-        return errorText;
-      }
-      const responseText = await res.text();
-      
-      // Log the raw response for debugging
-      console.log("=== RAW FETCH RESPONSE ===");
-      console.log("Response length:", responseText.length);
-      console.log("Response content:", responseText);
-      console.log("=== END RAW RESPONSE ===");
-      
-      logEvent({
-        text: `Raw API Response: ${responseText.substring(0, 500)}${responseText.length > 500 ? '...' : ''}`,
-        eventType: EventType.APP_DEBUG,
-      });
-      
-      return responseText;
-    })
-    .catch((err) => {
-      throw new Error(`Failed to call Mintlify API: ${err.message}`);
-    });
+  let responseText =
+    "Please try again, there was an error processing your request.";
 
-  return response;
+  try {
+    const res = await fetch(
+      // TODO: ppChange this to an env variable from infisical
+      `http://localhost:5000/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `${mintlifyConfig.apiKey}`,
+          "User-Agent": "Mintlify-Slack-Bot/1.0",
+        },
+        body: requestBody,
+      },
+    );
+
+    const responseBody = await res.text();
+    fs.writeFileSync("response_local.txt", responseBody);
+
+    if (!res.ok) {
+      logEvent({
+        text: `API Error: ${responseBody}`,
+        eventType: EventType.APP_GENERATE_MESSAGE_ERROR,
+      });
+    }
+    responseText = responseBody;
+  } catch (error) {
+    console.error(error);
+  }
+
+  if (responseText) {
+    await statusManager.finalUpdate(responseText);
+  }
 }
 
 export { processMessage };
