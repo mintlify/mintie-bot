@@ -37,7 +37,7 @@ async function handleChannelMention(
       event.ts,
     );
   } catch (error) {
-    logEvent({ event: error, eventType: EventType.APP_ERROR });
+    logEvent({ text: `Error processing message: ${error}`, eventType: EventType.APP_ERROR });
 
     client.chat.postMessage({
       channel: event.channel,
@@ -79,7 +79,7 @@ async function handleChannelMessage(
         event.ts,
       );
     } catch (error) {
-      logEvent({ event: error, eventType: EventType.APP_ERROR });
+      logEvent({ text: `Error processing message: ${error}`, eventType: EventType.APP_ERROR });
 
       client.chat.postMessage({
         channel: event.channel,

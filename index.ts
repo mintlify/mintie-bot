@@ -78,10 +78,17 @@ const app = new App({
     },
     fetchInstallation: async (installQuery: InstallationQuery<boolean>) => {
       if (installQuery.teamId) {
-        return (await dbQuery.findUser(installQuery.teamId)) as Installation<
-          "v1" | "v2",
-          boolean
-        >;
+        const userData = await dbQuery.findUser(installQuery.teamId);
+        if (userData?.bot?.encryptedToken) {
+          return {
+            ...userData,
+            bot: {
+              ...userData.bot,
+              token: userData.bot.encryptedToken,
+            },
+          } as Installation<"v1" | "v2", boolean>;
+        }
+        return userData as Installation<"v1" | "v2", boolean>;
       }
       throw new Error("Failed fetching installation");
     },

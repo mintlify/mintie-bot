@@ -5,11 +5,11 @@ const findUser = async (id: string) => {
     if (user[0] !== undefined) {
       const userData = user[0].toObject();
 
-      if (userData.bot?.token) {
-        userData.bot.token = model.decrypt(userData.bot.token);
+      if (userData.bot?.encryptedToken) {
+        userData.bot.encryptedToken = model.decrypt(userData.bot.encryptedToken);
       }
-      if (userData.apiKey) {
-        userData.apiKey = model.decrypt(userData.apiKey);
+      if (userData.encryptedApiKey) {
+        userData.encryptedApiKey = model.decrypt(userData.encryptedApiKey);
       }
 
       return userData;

@@ -5,7 +5,6 @@ import { EventType, MintlifyApiRequest, MintlifyConfig } from "../types";
 import { logEvent } from "../utils/logging";
 import dbQuery from "../database/get_user";
 import { constructDocumentationURL } from "../utils/utils";
-import fs from "fs";
 
 async function processMessage(
   client: WebClient,
@@ -122,8 +121,8 @@ async function generateResponse(
   logEvent({
     text: `API Request - Subdomain: ${
       mintlifyConfig.subdomain
-    }, API Key present: ${!!mintlifyConfig.apiKey}, API Key length: ${
-      mintlifyConfig.apiKey?.length || 0
+    }, API Key present: ${!!mintlifyConfig.encryptedApiKey}, API Key length: ${
+      mintlifyConfig.encryptedApiKey?.length || 0
     }`,
     eventType: EventType.APP_DEBUG,
   });
@@ -132,14 +131,14 @@ async function generateResponse(
     "Please try again, there was an error processing your request.";
 
   try {
+    const baseUrl = process.env.BASE_URL || "https://leaves.mintlify.com";
     const res = await fetch(
-      // TODO: ppChange this to an env variable from infisical
-      `http://localhost:5000/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
+      `${baseUrl}/api/discovery/v1/assistant/${mintlifyConfig.subdomain}/message`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `${mintlifyConfig.apiKey}`,
+          Authorization: `${mintlifyConfig.encryptedApiKey}`,
           "User-Agent": "Mintlify-Slack-Bot/1.0",
         },
         body: requestBody,
@@ -147,7 +146,6 @@ async function generateResponse(
     );
 
     const responseBody = await res.text();
-    fs.writeFileSync("response_local.txt", responseBody);
 
     if (!res.ok) {
       logEvent({
@@ -155,6 +153,7 @@ async function generateResponse(
         eventType: EventType.APP_GENERATE_MESSAGE_ERROR,
       });
     }
+
     responseText = responseBody;
   } catch (error) {
     console.error(error);
