@@ -12,7 +12,7 @@ import dbQuery from "../database/get_user";
 
 const domainConfigStore = new Map<
   string,
-  { id: string; subdomain: string; encryptedApiKey: string; timestamp: number }
+  { id: string; subdomain: string; encryptedApiKey: string; redirectUri?: string; timestamp: number }
 >();
 
 setInterval(() => {
@@ -39,10 +39,10 @@ async function processCustomInstall(
     const decodedParams = Buffer.from(encodedParams || "", "base64").toString(
       "utf8",
     );
-    const { subdomain, apiKey } = JSON.parse(decodedParams);
+    const { subdomain, apiKey, redirectUri } = JSON.parse(decodedParams);
 
     logEvent({
-      text: `Decoded install params: subdomain=${subdomain}, apiKey=${apiKey}`,
+      text: `Decoded install params: subdomain=${subdomain}, apiKey=${apiKey}, redirectUri=${redirectUri}`,
       eventType: EventType.APP_INFO,
     });
 
@@ -61,6 +61,7 @@ async function processCustomInstall(
         id: configId,
         subdomain,
         encryptedApiKey: apiKey,
+        redirectUri,
         timestamp: Date.now(),
       });
 
@@ -167,6 +168,7 @@ async function processInstallationSuccess(
     teamConfig = {
       subdomain: config.subdomain,
       encryptedApiKey: config.encryptedApiKey,
+      redirectUri: config.redirectUri,
     };
     await updateTeamConfig(teamId, teamConfig, configId);
   } else {
@@ -202,8 +204,17 @@ async function processInstallationSuccess(
     eventType: EventType.APP_INFO,
   });
 
-  res?.writeHead(200, { "Content-Type": "text/html" });
-  res?.end(getSuccessPageHTML());
+  if (teamConfig?.redirectUri) {
+    logEvent({
+      text: `Redirecting to provided redirectUri: ${teamConfig.redirectUri}`,
+      eventType: EventType.APP_INFO,
+    });
+    res?.writeHead(302, { Location: teamConfig.redirectUri });
+    res?.end();
+  } else {
+    res?.writeHead(200, { "Content-Type": "text/html" });
+    res?.end(getSuccessPageHTML());
+  }
 }
 
 function getSuccessPageHTML(): string {
@@ -245,7 +256,7 @@ function findConfigFromCookie(
 
 async function updateTeamConfig(
   teamId: string,
-  config: { subdomain: string; encryptedApiKey: string },
+  config: { subdomain: string; encryptedApiKey: string; redirectUri?: string },
   configId: string,
 ): Promise<void> {
   await model.SlackUser.updateOne(
