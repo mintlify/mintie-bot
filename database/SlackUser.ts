@@ -18,6 +18,8 @@ export const usersSchema = new mongoose.Schema(
     },
     subdomain: String,
     apiKey: String,
+    isConfigured: Boolean,
+    createdAt: Date,
   },
   { _id: false },
 );
