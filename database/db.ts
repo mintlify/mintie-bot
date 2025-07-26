@@ -8,10 +8,10 @@ import { logEvent } from "../utils/logging";
 import { usersSchema } from "./SlackUser";
 
 const uri = process.env.MONGODB_URI || "";
-const encryptionKey = process.env.ENCRYPTION_LOCAL_KEY;
+const encryptionKey = process.env.ENCRYPTION_KEY;
 
 if (!encryptionKey) {
-  throw new Error("ENCRYPTION_LOCAL_KEY is not set in environment variables");
+  throw new Error("ENCRYPTION_KEY is not set in environment variables");
 }
 
 const cryptr = new Cryptr(encryptionKey);

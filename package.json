@@ -4,8 +4,8 @@
   "description": "the mintlify slack assistant :0",
   "main": "index.ts",
   "scripts": {
-    "start": "npx ts-node index.ts",
-    "dev": "npx ts-node index.ts",
+    "start": "infisical run --env=dev -- npx ts-node index.ts",
+    "dev": "infisical run --env=dev -- npx ts-node index.ts",
     "build": "npx tsc",
     "test": "npx ts-node index.ts"
   },
