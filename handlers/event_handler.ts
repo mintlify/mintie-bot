@@ -8,18 +8,12 @@ async function handleChannelMention(
   event: ChannelMentionEvent,
   client: WebClient,
 ) {
-  const channelName = await getChannelName(client, event);
-
-  if (channelName === "ask-ai") {
-    return;
-  }
-
   logEvent({ event, eventType: EventType.APP_CHANNEL_MENTION });
 
   const contextMessage = await fetchThreadHistory(
     client,
     event.channel,
-    event.ts,
+    event.thread_ts || event.ts,
   );
 
   let finalMessage = event.text;
@@ -37,7 +31,10 @@ async function handleChannelMention(
       event.ts,
     );
   } catch (error) {
-    logEvent({ text: `Error processing message: ${error}`, eventType: EventType.APP_ERROR });
+    logEvent({
+      text: `Error processing message: ${error}`,
+      eventType: EventType.APP_ERROR,
+    });
 
     client.chat.postMessage({
       channel: event.channel,
@@ -53,7 +50,7 @@ async function handleChannelMessage(
 ) {
   const channelName = await getChannelName(client, event);
 
-  if (channelName === "ask-ai") {
+  if (channelName === "ask-ai" && !event.text?.includes("<@")) {
     logEvent({ event, eventType: EventType.APP_CHANNEL_MESSAGE });
 
     let messageText = event.text || "";
@@ -79,7 +76,10 @@ async function handleChannelMessage(
         event.ts,
       );
     } catch (error) {
-      logEvent({ text: `Error processing message: ${error}`, eventType: EventType.APP_ERROR });
+      logEvent({
+        text: `Error processing message: ${error}`,
+        eventType: EventType.APP_ERROR,
+      });
 
       client.chat.postMessage({
         channel: event.channel,
