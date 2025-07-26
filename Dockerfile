@@ -13,12 +13,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
+COPY .infisical.json ./
 EXPOSE 3000
 
-RUN curl -1sLf \
-'https://artifacts-cli.infisical.com/setup.deb.sh' \
-| sudo -E bash
-
-RUN sudo apt-get update && sudo apt-get install -y infisical
+RUN apk add --no-cache bash curl && curl -1sLf \
+'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.alpine.sh' | bash \
+&& apk add infisical
 
 CMD ["infisical", "run", "--env=prod", "node", "dist/index.js"] 

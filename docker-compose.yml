@@ -1,6 +1,18 @@
 services:
+  build:
+    build:
+      context: .
+      args:
+        INFISICAL_TOKEN: ${INFISICAL_TOKEN}
+    env_file:
+      - .env
+
   mintie-bot:
     build: .
     ports:
       - 3000:3000
     restart: unless-stopped
+    environment:
+      - INFISICAL_TOKEN=${INFISICAL_TOKEN}
+    env_file:
+      - .env
